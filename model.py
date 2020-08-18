@@ -208,14 +208,14 @@ class Seasonalizer:
                 self.filter_dict[timestep].append(int(round(ds.catg_id.values[0])))
         pdb.set_trace()
         for counter, (timestep, gms_tab) in enumerate(zip(self.args.TIME_ORDER, gms_csv)):
-            drop_idxs = []
-            for idx in self.filter_dict[timestep]:
+            drop_ids = []
+            for id in self.filter_dict[timestep]:
                 try:
-                    drop_idxs.append(gms_tab[gms_tab.catg_id==idx].index.item())
+                    drop_ids.append(gms_tab[gms_tab.catg_id==id].index.item())
                 except ValueError:
                     pass
-            gms_csv[counter] = gms_tab.drop(drop_idxs).reset_index(drop=True)
-
+            gms_csv[counter] = gms_tab.drop(drop_ids).reset_index(drop=True)
+        pdb.set_trace()
         return gms_csv
 
 # OPTIMIZER
