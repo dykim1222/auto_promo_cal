@@ -870,7 +870,6 @@ class Predictor:
         print('Filtering predictions...')
 
         seasoner = Seasonalizer(self.dp_seas, self.args)
-        gms_csv = self.apply_season_filter(gms_csv) # filtering with seasonality
 
         print('Filtering predictions done...')
 
