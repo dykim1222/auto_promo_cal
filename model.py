@@ -824,7 +824,7 @@ class Predictor:
         # plt.show()
 
         gms_tensor = np.maximum(gms_tensor, 0) # gms_tensor.shape # [num_items, num_dsc_rates, num_timesteps]
-
+        pdb.set_trace()
         # TRANSFORMING INTO PANDAS DATAFRAMES
         catgid = np.array(list(map(lambda x: self.args.IDX_TO_ID[x], pred_set_idx))).astype(int)
         catgid = np.expand_dims(catgid, 1)
