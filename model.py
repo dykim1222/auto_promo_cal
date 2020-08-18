@@ -842,9 +842,11 @@ class Predictor:
         for i in range(self.args.FORECAST_SIZE):
 
             gms_tab = gms_tensor[:,:,i]
+
+            pdb.set_trace()
             csv = pd.DataFrame(np.concatenate((catgid, catgname, gms_tab), axis = 1),
                         columns = ['catg_id', 'catg_name']+['gms_pred_{}'.format(x) for x in [0,5,10,15,20,25]])
-
+            pdb.set_trace()
             time_num = (self.args.endtime+i)%END_TIME_SCALE
             if time_num == 0:
                 time_num = END_TIME_SCALE
