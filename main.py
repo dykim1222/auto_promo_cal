@@ -71,5 +71,5 @@ args.FORECAST_SIZE = 12 if args.TIME_SCALE == 'month' else 48 # 1 year
 PATH_DATA_RAW = 'https://raw.githubusercontent.com/dykim1222/gmsdata/master/catg_mnth.csv'
 df = pd.read_csv(PATH_DATA_RAW, sep='\t')
 
-model = Predictor(df, args)
-promo_cal = model.infer() # promo calendar
+predictor = Predictor(df, args)
+promo_cal = predictor.infer() # promo calendar
