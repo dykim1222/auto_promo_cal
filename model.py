@@ -198,18 +198,15 @@ class Seasonalizer:
         TIME_RANGE = np.arange(self.args.FORECAST_SIZE) + 1
         self.filter_dict = defaultdict(list) #key: time, value: catg_idx's to remove
 
-        pdb.set_trace()
-
         # changing to T/F value
         self.scores.loc[:, TIME_RANGE.tolist()] = (self.scores.loc[:, TIME_RANGE.tolist()].values < self.args.THRESHOLD_SEASONALITY)
 
-        pdb.set_trace()
         # adding items to DROP: items with seasonality score under the threshold
         for idx in self.scores.catg_id.unique():
             ds = self.scores[self.scores.catg_id == idx]
             for timestep in TIME_RANGE[ds.loc[:, TIME_RANGE.tolist()].values.reshape(-1).astype('bool')]:
                 self.filter_dict[timestep].append(int(round(ds.catg_id.values[0])))
-        pdb.set_trace()
+
         for counter, (timestep, gms_tab) in enumerate(zip(self.args.TIME_ORDER, gms_csv)):
             drop_ids = []
             for id in self.filter_dict[timestep]:
@@ -217,6 +214,7 @@ class Seasonalizer:
                     drop_ids.append(gms_tab[gms_tab.catg_id==id].index.item())
                 except ValueError:
                     pass
+            pdb.set_trace()
             gms_csv[counter] = gms_tab.drop(drop_ids).reset_index(drop=True)
         pdb.set_trace()
         return gms_csv
