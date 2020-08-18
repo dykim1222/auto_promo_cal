@@ -476,7 +476,7 @@ class Predictor:
         def catg_id_to_idx(x):
             return ID_TO_IDX[x]
         self.dp.catg_id = self.dp.catg_id.apply(catg_id_to_idx)
-        print('Tokeninzing TAXONOMY ID -> TAXONOMY IDX')
+        # print('Tokeninzing TAXONOMY ID -> TAXONOMY IDX')
 
         # self.dp has catg_id as indexes
         # self.dp_sesas has catg_id as ids
