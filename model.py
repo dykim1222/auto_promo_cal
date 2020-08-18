@@ -606,7 +606,8 @@ class Predictor:
         # Setting common hyperparameters
         input_dim = self.trainX[0].shape[2] - 1 + self.args.EMBEDDING_DIM
         output_dim = 1
-        self.val_best = float('inf')
+        # self.val_best = float('inf')
+>    self.val_best = 0
 
         if self.args.DEBUG:
             self.args.HIDDEN_DIM = 2
@@ -659,7 +660,7 @@ class Predictor:
             self.train_losses.append(avg_loss/len(self.train_loader))
             self.epoch_times.append(current_time-start_time)
 
-            if self.test_performance[-1] < self.val_best:
+            if self.test_performance[-1] > self.val_best:
                 self.val_best = self.test_performance[-1]
                 save_data = {'model': model.state_dict(),
                     'optimizer': optimizer.state_dict(),
@@ -741,7 +742,7 @@ class Predictor:
         corr_pears = np.median(cp_list)
         corr_spear = np.median(cs_list)
 
-        test_perf = wMAPE
+        test_perf = corr_spear
         self.test_performance.append(test_perf)
         self.test_losses.append(test_loss.item())
 
