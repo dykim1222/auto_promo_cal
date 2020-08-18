@@ -538,8 +538,8 @@ class Predictor:
         # Make the table into sequential data
         if self.args.DATA_CREATED:
             # LOAD THE DATA
-            train_data_load = torch.load('train_data_save.pt')
-            test_data_load = torch.load('test_data_save.pt')
+            train_data_load = torch.load(self.args.PATH_SAVE + 'train_data_save.pt')
+            test_data_load = torch.load(self.args.PATH_SAVE + 'test_data_save.pt')
             self.trainX, self.trainY, self.train_dsc = train_data_load['x'], train_data_load['y'], train_data_load['d']
             self.testX, self.testY, self.test_dsc = test_data_load['x'], test_data_load['y'], test_data_load['d']
 
