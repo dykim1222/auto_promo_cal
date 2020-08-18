@@ -595,7 +595,7 @@ class Predictor:
 
         self.train_data = TensorDataset(torch.cat(self.trainX, dim = 0), torch.cat(self.trainY, dim=0), torch.cat(self.train_dsc, dim=0))
         self.train_loader = DataLoader(self.train_data, shuffle=True, batch_size=self.args.BATCH_SIZE, drop_last = True)
-        print('Train/Validation Split done!')
+        # print('Train/Validation Split done!')
 
         print('Generating dataset done...')
 
