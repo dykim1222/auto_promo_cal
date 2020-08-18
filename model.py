@@ -536,7 +536,7 @@ class Predictor:
 
     def generate_dataset(self):
         # Make the table into sequential data
-
+        print(self.args.DATA_CREATED)
         if self.args.DATA_CREATED:
             # LOAD THE DATA
             train_data_load = torch.load('train_data_save.pt')
