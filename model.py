@@ -719,10 +719,23 @@ class Predictor:
 
     def infer(self):
 
+        print('Aggregating data...')
         self.aggregate()            # data aggregation
+        print('Aggregating data done...')
+
+        print('Preprocessing data...')
         self.preprocess()           # data preprocess
+        print('Preprocessing data done...')
+
+        print('Generating dataset...')
         self.generate_dataset()     # data generation
+        print('Generating dataset done...')
+
+        print('Training the model...')
         self.train()                # train and save the model
+        print('Training the model done...')
+
+
 
         # Loading best model for Evaluation
         input_dim = self.trainX[0].shape[2] - 1 + self.args.EMBEDDING_DIM
@@ -741,7 +754,9 @@ class Predictor:
         self.calibration_dict_time = loaded['calib_time']
         self.calibration_dict_item = loaded['calib_item']
 
+
         # INFERENCE
+        print('Inference...')
         inputX = []
         for idx in (self.args.IDX_TO_ID.keys()):
             dd = self.dp[self.dp.catg_id == idx].reset_index(drop=True)
@@ -850,20 +865,31 @@ class Predictor:
             if time_num == END_TIME_SCALE:
                 curryear += 1
             TIME_ORDER.append(time_num)
+        print('Inference done...')
+
 
         self.args.TIME_ORDER = TIME_ORDER
 
+
         # FILTER WITH SEASONALITY
+        print('Filtering predictions...')
         seasoner = Seasonalizer(self.dp_seas, self.args)
         gms_csv = seasoner.filter(gms_csv)
+        print('Filtering predictions done...')
+
 
         # POSTPROCESS
+        print('Postprocessing...')
         gms_csv = self.postprocess(gms_csv)
+        print('Postprocessing done...')
+
 
         # OPTIMIZATION
+        print('Optimizing...')
         optimizer = LpOptimizer(self.args)
         promo_cal = optimizer.optmize(self.dp, gms_csv)
         promo_cal.to_csv(self.args.PATH_SAVE+'promo_cal.csv', index=False)
+        print('Optimizing done...')
 
         return promo_cal
 
