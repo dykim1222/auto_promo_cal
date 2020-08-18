@@ -607,7 +607,7 @@ class Predictor:
         input_dim = self.trainX[0].shape[2] - 1 + self.args.EMBEDDING_DIM
         output_dim = 1
         # self.val_best = float('inf')
->    self.val_best = 0
+        self.val_best = 0
 
         if self.args.DEBUG:
             self.args.HIDDEN_DIM = 2
