@@ -185,17 +185,20 @@ class Seasonalizer:
         def calculate_seasonality(ds):
             gms = ds.groupby('mnth_of_yr_num').mean().gms.values
             seas_score = MinMaxScaler().fit_transform(gms.reshape(-1,1)).reshape(-1)
-            return pd.DataFrame(np.array([int(ds.catg_id.unique().item())] + \
-                                            seas_score.tolist(), dtype='object').reshape(1,-1), \
-                                columns=['catg_id']+[i for i in range(1,self.args.FORECAST_SIZE+1)])
+            out = pd.DataFrame(np.array([int(ds.catg_id.unique().item())] + seas_score.tolist(), dtype='object').reshape(1,-1), columns=['catg_id']+[i for i in range(1,self.args.FORECAST_SIZE+1)])
+            return out
         self.scores = self.dp.groupby('catg_id').apply(calculate_seasonality).reset_index(drop=True)
+        self.scores.catg_id = self.scores.catg_id.astype('int')
+        self.scores.loc[:, self.scores.keys()[1:]] = self.scores.loc[:, self.scores.keys()[1:]].values.astype('float')
 
     def filter(self, gms_csv):
         # filtering with seasonality_score
-        pdb.set_trace()
+
         self.calculate() # calculating seasonality score
         TIME_RANGE = np.arange(self.args.FORECAST_SIZE) + 1
         self.filter_dict = defaultdict(list) #key: time, value: catg_idx's to remove
+
+        pdb.set_trace()
 
         # changing to T/F value
         self.scores.loc[:, TIME_RANGE.tolist()] = (self.scores.loc[:, TIME_RANGE.tolist()].values < self.args.THRESHOLD_SEASONALITY)
