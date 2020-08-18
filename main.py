@@ -40,7 +40,7 @@ args.add_argument('--PATH_SAVE', nargs='?', type=str, default='./') # save path
 args.add_argument('--THRESHOLD_GMS_OUTLIER', nargs='?', type=float, default=1e8) # outlier threshold
 args.add_argument('--THRESHOLD_SEASONALITY', nargs='?', type=float, default=0.3)
 args.add_argument('--BUDGET', nargs='?', type=float, default=1e6)
-args.add_argument('--DATA_AGGREGATED', nargs='?', type=bool, default=True) # whether data is algready aggregated (saves time when testing)
+args.add_argument('--DATA_AGGREGATED', nargs='?', type=bool, default=False) # whether data is algready aggregated (saves time when testing)
 args.add_argument('--DATA_CREATED', nargs='?', type=bool, default=False)
 args.add_argument('--DEBUG', nargs='?', type=bool, default=False)
 # LSTM params
