@@ -706,7 +706,7 @@ class Predictor:
         cs_list = []
 
         # calibration all
-        self.calib_all = np.polyfit(outputs.reshape(-1), targets.reshape(-1), 1)
+        self.calib_all = np.polyfit(out.reshape(-1), y.reshape(-1), 1)
 
         # calibration across time dimension
         for i in range(self.args.FORECAST_SIZE):
