@@ -36,6 +36,7 @@ args = argparse.ArgumentParser()
 args.add_argument('--TIME_SCALE', nargs='?', type=str, default='month') # month or week
 args.add_argument('--TAXONOMY_LEVEL', nargs='?', type=str, default='catg') # catg or subcatg
 args.add_argument('--PATH_DATA_RAW', nargs='?', type=str, default='./') # raw data path
+args.add_argument('--PATH_SAVE', nargs='?', type=str, default='./') # save path
 args.add_argument('--THRESHOLD_GMS_OUTLIER', nargs='?', type=float, default=1e8) # outlier threshold
 args.add_argument('--THRESHOLD_SEASONALITY', nargs='?', type=float, default=0.3)
 args.add_argument('--BUDGET', nargs='?', type=float, default=1e6)
@@ -59,7 +60,7 @@ args.add_argument('--NUM_KERNELS1', nargs='?', type=int, default=20) # how many 
 args.add_argument('--NUM_KERNELS2', nargs='?', type=int, default=5) # how many kernels per channel for conv2
 args = args.parse_args()
 
-args.PATH_MODEL_SAVE = 'model_{}_{}.pt'.format(args.TAXONOMY_LEVEL, args.TIME_SCALE)
+args.PATH_MODEL_SAVE = args.PATH_SAVE + 'model_{}_{}.pt'.format(args.TAXONOMY_LEVEL, args.TIME_SCALE)
 args.CONTEXT_SIZE = 24 if args.TIME_SCALE == 'month' else 96 # 2 years
 args.FORECAST_SIZE = 12 if args.TIME_SCALE == 'month' else 48 # 1 year
 
@@ -68,8 +69,8 @@ args.FORECAST_SIZE = 12 if args.TIME_SCALE == 'month' else 48 # 1 year
 
 
 
-PATH_DATA_RAW = 'https://raw.githubusercontent.com/dykim1222/gmsdata/master/catg_mnth.csv'
-df = pd.read_csv(PATH_DATA_RAW, sep='\t')
+args.PATH_DATA_RAW = 'https://raw.githubusercontent.com/dykim1222/gmsdata/master/catg_mnth.csv'
+df = pd.read_csv(args.PATH_DATA_RAW, sep='\t')
 
 predictor = Predictor(df, args)
 promo_cal = predictor.infer() # promo calendar

@@ -536,7 +536,6 @@ class Predictor:
 
     def generate_dataset(self):
         # Make the table into sequential data
-        print(self.args.DATA_CREATED)
         if self.args.DATA_CREATED:
             # LOAD THE DATA
             train_data_load = torch.load('train_data_save.pt')
@@ -577,8 +576,8 @@ class Predictor:
                         self.testY.append(future_gms.unsqueeze(0))
 
             # SAVE THE DATA
-            torch.save({'x': self.trainX, 'y': self.trainY, 'd': self.train_dsc}, 'train_data_save.pt')
-            torch.save({'x':self.testX, 'y': self.testY, 'd':self.test_dsc}, 'test_data_save.pt')
+            torch.save({'x': self.trainX, 'y': self.trainY, 'd': self.train_dsc}, self.args.PATH_SAVE+'train_data_save.pt')
+            torch.save({'x':self.testX, 'y': self.testY, 'd':self.test_dsc}, self.args.PATH_SAVE+'test_data_save.pt')
 
         self.train_data = TensorDataset(torch.cat(self.trainX, dim = 0), torch.cat(self.trainY, dim=0), torch.cat(self.train_dsc, dim=0))
         self.train_loader = DataLoader(self.train_data, shuffle=True, batch_size=self.args.BATCH_SIZE, drop_last = True)
@@ -864,7 +863,7 @@ class Predictor:
         # OPTIMIZATION
         optimizer = LpOptimizer(self.args)
         promo_cal = optimizer.optmize(self.dp, gms_csv)
-        promo_cal.to_csv('promo_cal.csv', index=False)
+        promo_cal.to_csv(self.args.PATH_SAVE+'promo_cal.csv', index=False)
 
         return promo_cal
 
