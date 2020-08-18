@@ -706,7 +706,7 @@ class Predictor:
         cs_list = []
 
         # calibration all
-        self.calib_all = np.polyfit(out.reshape(-1), y.reshape(-1), 1)
+        self.calibration_all = np.polyfit(out.reshape(-1), y.reshape(-1), 1)
 
         # calibration across time dimension
         for i in range(self.args.FORECAST_SIZE):
@@ -763,7 +763,7 @@ class Predictor:
         loaded = torch.load(self.args.PATH_MODEL_SAVE)
         model.load_state_dict(loaded['model'])
         self.scaler_label_dict = loaded['scale']
-        self.calib_all = loaded['calib_all']
+        self.calibration_all = loaded['calib_all']
         self.calibration_dict_time = loaded['calib_time']
         self.calibration_dict_item = loaded['calib_item']
 
@@ -805,7 +805,7 @@ class Predictor:
 
             # 4 CALIBRATION VARIATIONS: item, time, all, none
             if self.args.CALIBRATION_MODE == 'all': # calib all
-                out = (self.calib_all[1] + self.calib_all[0]*out).reshape(self.args.VOCAB_SIZE, -1)
+                out = (self.calibration_all[1] + self.calibration_all[0]*out).reshape(self.args.VOCAB_SIZE, -1)
             elif self.args.CALIBRATION_MODE == 'time': # calibrate across time
                 out = np.concatenate([((out[:,i]*self.calibration_dict_time[i][0]) + self.calibration_dict_time[i][1]).reshape(self.args.VOCAB_SIZE, 1)  for i in range(self.args.FORECAST_SIZE)], axis = 1)
             elif self.args.CALIBRATION_MODE == 'item': # calibrate across items
