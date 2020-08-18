@@ -42,6 +42,7 @@ args.add_argument('--THRESHOLD_SEASONALITY', nargs='?', type=float, default=0.3)
 args.add_argument('--BUDGET', nargs='?', type=float, default=1e6)
 args.add_argument('--DATA_AGGREGATED', nargs='?', type=bool, default=False) # whether data is algready aggregated (saves time when testing)
 args.add_argument('--DATA_CREATED', nargs='?', type=bool, default=False)
+args.add_argument('--CALIBRATION_MODE', nargs='?', type=str, default='item') # calibration methods: none, item, time, all
 args.add_argument('--DEBUG', nargs='?', type=bool, default=False)
 # LSTM params
 args.add_argument('--lr', nargs='?', type=float, default=0.00001) # learing rate
@@ -72,5 +73,12 @@ args.FORECAST_SIZE = 12 if args.TIME_SCALE == 'month' else 48 # 1 year
 args.PATH_DATA_RAW = 'https://raw.githubusercontent.com/dykim1222/gmsdata/master/catg_mnth.csv'
 df = pd.read_csv(args.PATH_DATA_RAW, sep='\t')
 
-predictor = Predictor(df, args)
-promo_cal = predictor.infer() # promo calendar
+predictor = Predictor(df, args)                     # initialization
+predictor.aggregate()                               # data aggregation
+predictor.preprocess()                              # data preprocess
+predictor.generate_dataset()                        # data generation
+predictor.train()                                   # train and save the model
+gms_csv = predictor.infer()                         # inference
+gms_csv = predictor.apply_season_filter(gms_csv)    # filtering with seasonality
+gms_csv = predictor.postprocess(gms_csv)            # POSTPROCESS
+promo_cal = predictor.optimize(gms_csv)             # OPTIMIZATION

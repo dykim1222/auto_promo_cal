@@ -326,6 +326,7 @@ class Predictor:
 
         self.calibration_dict_time = {}
         self.calibration_dict_item = {}
+        self.calibration_all = None
 
         def smape(pred, targ):
             if type(pred) == np.ndarray:
@@ -356,6 +357,9 @@ class Predictor:
         self.wmape_func = wmape
 
     def aggregate(self):
+
+        print('Aggregating data...')
+
         ID_TO_IDX = {}
         IDX_TO_ID = {}
         IDX_TO_NAME = {}
@@ -487,7 +491,12 @@ class Predictor:
         self.args.VOCAB_SIZE = len(ID_TO_IDX.keys())
         self.args.EMBEDDING_DIM = int(round(self.args.VOCAB_SIZE**(0.3)))
 
+
+        print('Aggregating data done...')
+
     def preprocess(self):
+
+        print('Preprocessing data...')
 
         cyclical_keys_periods = [4, 12, 3, 12, 12]
         cyclical_keys = self.dp.keys()[[2, 3, 4, 9, 11]]
@@ -534,8 +543,13 @@ class Predictor:
         del self.dp['gms']
         self.dp['gms'] = temp
 
+        print('Preprocessing data done...')
+
     def generate_dataset(self):
         # Make the table into sequential data
+
+        print('Generating dataset...')
+
         if self.args.DATA_CREATED:
             # LOAD THE DATA
             train_data_load = torch.load(self.args.PATH_SAVE + 'train_data_save.pt')
@@ -583,7 +597,12 @@ class Predictor:
         self.train_loader = DataLoader(self.train_data, shuffle=True, batch_size=self.args.BATCH_SIZE, drop_last = True)
         print('Train/Validation Split done!')
 
+        print('Generating dataset done...')
+
     def train(self):
+
+        print('Training the model...')
+
         # Setting common hyperparameters
         input_dim = self.trainX[0].shape[2] - 1 + self.args.EMBEDDING_DIM
         output_dim = 1
@@ -647,7 +666,8 @@ class Predictor:
                     'epoch': epoch,
                     'scale': self.scaler_label_dict,
                     'calib_time': self.calibration_dict_time,
-                    'calib_item': self.calibration_dict_item
+                    'calib_item': self.calibration_dict_item,
+                    'calib_all': self.calibration_all
                     }
                 torch.save(save_data, self.args.PATH_MODEL_SAVE)
                 self.saved_model = save_data
@@ -658,6 +678,8 @@ class Predictor:
 
         # return model
         print("Total Training Time: {} seconds".format(str(sum(self.epoch_times))))
+
+        print('Training the model done...')
 
     def evaluate(self, model, analysis=False):
         model.eval()
@@ -681,8 +703,13 @@ class Predictor:
         wmape_list = []
         cp_list = []
         cs_list = []
+
+        # calibration all
+        self.calib_all = np.polyfit(outputs.reshape(-1), targets.reshape(-1), 1)
+
+        # calibration across time dimension
         for i in range(self.args.FORECAST_SIZE):
-            # save calibration across time dimension
+
             line_slope, line_bias = np.polyfit(out[:,i], y[:,i], 1)
             self.calibration_dict_time[i] = (line_slope, line_bias)
 
@@ -691,12 +718,13 @@ class Predictor:
             cp_list.append(np.corrcoef(out[:,i], y[:,i])[0,1])
             cs_list.append(spearmanr(out[:,i], y[:,i])[0])
 
-        # save calibration across item dimension
+        # calibration across item dimension
         out_calib = out.reshape(len(set(test_set_idx)), -1)
         y_calib = y.reshape(len(set(test_set_idx)), -1)
         for counter, idx in enumerate(test_set_idx.reshape(len(set(test_set_idx)),-1)[:,0]):
             line_slope, line_bias = np.polyfit(out_calib[counter], y_calib[counter], 1)
             self.calibration_dict_item[idx] = (line_slope, line_bias)
+
 
         if not analysis:
             self.wmape_3hist.append([100*np.min(wmape_list), 100*np.median(wmape_list), 100*np.max(wmape_list)])
@@ -718,24 +746,7 @@ class Predictor:
         self.test_losses.append(test_loss.item())
 
     def infer(self):
-
-        print('Aggregating data...')
-        self.aggregate()            # data aggregation
-        print('Aggregating data done...')
-
-        print('Preprocessing data...')
-        self.preprocess()           # data preprocess
-        print('Preprocessing data done...')
-
-        print('Generating dataset...')
-        self.generate_dataset()     # data generation
-        print('Generating dataset done...')
-
-        print('Training the model...')
-        self.train()                # train and save the model
-        print('Training the model done...')
-
-
+        print('Inference...')
 
         # Loading best model for Evaluation
         input_dim = self.trainX[0].shape[2] - 1 + self.args.EMBEDDING_DIM
@@ -751,12 +762,12 @@ class Predictor:
         loaded = torch.load(self.args.PATH_MODEL_SAVE)
         model.load_state_dict(loaded['model'])
         self.scaler_label_dict = loaded['scale']
+        self.calib_all = loaded['calib_all']
         self.calibration_dict_time = loaded['calib_time']
         self.calibration_dict_item = loaded['calib_item']
 
 
         # INFERENCE
-        print('Inference...')
         inputX = []
         for idx in (self.args.IDX_TO_ID.keys()):
             dd = self.dp[self.dp.catg_id == idx].reset_index(drop=True)
@@ -788,26 +799,19 @@ class Predictor:
             out = out.detach().cpu().numpy()
 
             # original scale
-
             pred_set_idx = inputX[:, 0, 0].long().numpy()
             out = np.concatenate([self.scaler_label_dict[idx].inverse_transform(o.reshape(-1,1)).T for idx, o in zip(pred_set_idx, out)])
 
-            '''
-            3 CALIBRATION VARIATIONS: item, time, all
-            Calibration for each item? or each month?
-            '''
+            # 4 CALIBRATION VARIATIONS: item, time, all, none
+            if self.args.CALIBRATION_MODE == 'all': # calib all
+                out = (self.calib_all[1] + self.calib_all[0]*out).reshape(self.args.VOCAB_SIZE, -1)
+            elif self.args.CALIBRATION_MODE == 'time': # calibrate across time
+                out = np.concatenate([((out[:,i]*self.calibration_dict_time[i][0]) + self.calibration_dict_time[i][1]).reshape(self.args.VOCAB_SIZE, 1)  for i in range(self.args.FORECAST_SIZE)], axis = 1)
+            elif self.args.CALIBRATION_MODE == 'item': # calibrate across items
+                out = np.concatenate([(o*self.calibration_dict_item[idx][0] + self.calibration_dict_item[idx][1]).reshape(1,-1) for idx, o in zip(pred_set_idx, out)])
+            elif self.args.CALIBRATION_MODE == 'none':
+                pass
 
-            # # calibrate across items
-            out = np.concatenate([(o*self.calibration_dict_item[idx][0] + self.calibration_dict_item[idx][1]).reshape(1,-1) for idx, o in zip(pred_set_idx, out)])
-
-            # calibrate across time
-            # out = np.concatenate([((out[:,i]*self.calibration_dict_time[i][0]) + self.calibration_dict_time[i][1]).reshape(self.args.VOCAB_SIZE, 1)  for i in range(self.args.FORECAST_SIZE)], axis = 1)
-
-            # # calib all
-            # out = b + out*m
-            # out = out.reshape(self.args.VOCAB_SIZE, -1)
-
-            # now we have original-scaled and calibrated prediction based off data at future times of all items at a fixed discount rate. store it.
             gms_tensor.append(np.expand_dims(out, 1))
 
         gms_tensor = np.concatenate(gms_tensor, axis=1)
@@ -819,25 +823,13 @@ class Predictor:
         # plt.show()
 
         gms_tensor = np.maximum(gms_tensor, 0) # gms_tensor.shape # [num_items, num_dsc_rates, num_timesteps]
-        # np.save('gms_tensor', gms_tensor)
 
         # TRANSFORMING INTO PANDAS DATAFRAMES
         catgid = np.array(list(map(lambda x: self.args.IDX_TO_ID[x], pred_set_idx))).astype(int)
-
-
-        # dn = self.df_name_date
-        # # dn = pd.read_csv('https://raw.githubusercontent.com/dykim1222/gmsdata/master/name_catg.csv').sort_values('catg_id')
-        # dn = dn[dn.catg_id>0].reset_index(drop=True)
-        # CATG_ID_TO_NAME = {}
-        # for cid in catgid:
-        #     if dn[dn.catg_id==cid].shape[0] == 0:
-        #         pass
-        #     else:
-        #         CATG_ID_TO_NAME[cid] = dn[dn.catg_id == cid].catg_name.values[0]
+        catgid = np.expand_dims(catgid, 1)
 
         catgname = np.array([self.args.ID_TO_NAME[cid] for cid in catgid])
         catgname = np.expand_dims(catgname, 1)
-        catgid = np.expand_dims(catgid, 1)
 
         TIME_ORDER = []
         gms_csv = []
@@ -865,35 +857,28 @@ class Predictor:
             if time_num == END_TIME_SCALE:
                 curryear += 1
             TIME_ORDER.append(time_num)
-        print('Inference done...')
-
 
         self.args.TIME_ORDER = TIME_ORDER
 
+        print('Inference done...')
 
-        # FILTER WITH SEASONALITY
+        return gms_csv
+
+    def apply_season_filter(self, gms_csv):
+
         print('Filtering predictions...')
+
         seasoner = Seasonalizer(self.dp_seas, self.args)
-        gms_csv = seasoner.filter(gms_csv)
+        gms_csv = self.apply_season_filter(gms_csv) # filtering with seasonality
+
         print('Filtering predictions done...')
 
-
-        # POSTPROCESS
-        print('Postprocessing...')
-        gms_csv = self.postprocess(gms_csv)
-        print('Postprocessing done...')
-
-
-        # OPTIMIZATION
-        print('Optimizing...')
-        optimizer = LpOptimizer(self.args)
-        promo_cal = optimizer.optmize(self.dp, gms_csv)
-        promo_cal.to_csv(self.args.PATH_SAVE+'promo_cal.csv', index=False)
-        print('Optimizing done...')
-
-        return promo_cal
+        return seasoner.filter(gms_csv)
 
     def postprocess(self, gms_csv):
+
+        print('Postprocessing...')
+
         # drop constant items  OR zero out once starting to decrease.
 
         for counter, gms_tab in enumerate(gms_csv):
@@ -910,4 +895,18 @@ class Predictor:
                             break
             gms_csv[counter] = gms_tab.drop(drop_idxs).reset_index(drop=True)
 
+        print('Postprocessing done...')
+
         return gms_csv
+
+    def optimize(self, gms_csv):
+
+        print('Optimizing...')
+
+        optimizer = LpOptimizer(self.args)
+        promo_cal = optimizer.optmize(self.dp, gms_csv)
+        promo_cal.to_csv(self.args.PATH_SAVE+'promo_cal.csv', index=False)
+
+        print('Optimizing done...')
+
+        return promo_cal
