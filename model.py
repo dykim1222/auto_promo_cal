@@ -843,10 +843,11 @@ class Predictor:
 
             gms_tab = gms_tensor[:,:,i]
 
-            pdb.set_trace()
             csv = pd.DataFrame(np.concatenate((catgid, catgname, gms_tab), axis = 1),
                         columns = ['catg_id', 'catg_name']+['gms_pred_{}'.format(x) for x in [0,5,10,15,20,25]])
-            pdb.set_trace()
+            csv.catg_id = csv.catg_id.astype('int')
+            csv.loc[:, csv.keys()[-6:]] = csv.loc[:, csv.keys()[-6:]].values.astype('float')
+
             time_num = (self.args.endtime+i)%END_TIME_SCALE
             if time_num == 0:
                 time_num = END_TIME_SCALE
