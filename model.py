@@ -214,9 +214,8 @@ class Seasonalizer:
                     drop_ids.append(gms_tab[gms_tab.catg_id==id].index.item())
                 except ValueError:
                     pass
-            pdb.set_trace()
             gms_csv[counter] = gms_tab.drop(drop_ids).reset_index(drop=True)
-        pdb.set_trace()
+
         return gms_csv
 
 # OPTIMIZER
