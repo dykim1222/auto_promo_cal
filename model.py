@@ -873,11 +873,11 @@ class Predictor:
 
         print('Filtering predictions...')
 
-        seasoner = Seasonalizer(self.dp_seas, self.args)
+        self.seasoner = Seasonalizer(self.dp_seas, self.args)
 
         print('Filtering predictions done...')
 
-        return seasoner.filter(gms_csv)
+        return self.seasoner.filter(gms_csv)
 
     def postprocess(self, gms_csv):
 
