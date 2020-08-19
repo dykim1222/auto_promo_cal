@@ -867,6 +867,7 @@ class Predictor:
 
         print('Inference done...')
 
+        self.gms_csv = gms_csv
         return gms_csv
 
     def apply_season_filter(self, gms_csv):
