@@ -371,9 +371,15 @@ class Predictor:
         if self.args.TAXONOMY_LEVEL == 'catg':
             self.args.TAX_ID = 'catg_id'
             self.args.TAX_NAME = 'catg_name'
+            self.args.TIME_VAR = 'mnth_of_yr_num'
+            self.args.INT_SEP = 5
+            self.args.NAME_AGG = 'catg_mnth_agg.csv'
         elif self.args.TAXONOMY_LEVEL == 'subcatg':
             self.args.TAX_ID = 'subcatg_id'
             self.args.TAX_NAME = 'subcatg_name'
+            self.args.TIME_VAR = 'promo_wk_num'
+            self.args.INT_SEP = 6
+            self.args.NAME_AGG = 'subcatg_wk_agg.csv'
 
         self.df_name_date = self.df[pd.Index([self.args.TAX_ID]+self.df.keys()[-3:].tolist())]
         self.df_name_date = self.df_name_date.groupby(self.args.TAX_ID).apply(lambda x: x.iloc[0]).reset_index(drop=True)
@@ -392,15 +398,11 @@ class Predictor:
                 self.dp = self.dp.iloc[:3000]
 
         else: # aggregate the data
-            if self.args.TAXONOMY_LEVEL == 'catg':
-                int_sep = 5
-            elif self.args.TAXONOMY_LEVEL == 'subcatg':
-                int_sep = 6
             def aggregate_func(x):
                 # for a fixed item and time, if there are multiple transaction data for different discount rates,
                 #     aggregate these data by summing GMS values and taking weighted average of discount rates.
                 if x.shape[0] == 1:
-                    out = pd.DataFrame([(x.iloc[0].values.astype('int')[:int_sep]).tolist() + \
+                    out = pd.DataFrame([(x.iloc[0].values.astype('int')[:self.args.INT_SEP]).tolist() + \
                                         [x.site_promo_dsc_amt.values[0]] + \
                                         [x.holiday_ind.unique()[0]] + \
                                         [x.gms.values[0]]], \
@@ -408,65 +410,92 @@ class Predictor:
                     return out
                 gms_sum = x.gms.sum()
                 if gms_sum == 0: # prevent NaNs
-                    out = pd.DataFrame([(x.iloc[0].values.astype('int')[:int_sep]).tolist() + \
+                    out = pd.DataFrame([(x.iloc[0].values.astype('int')[:self.args.INT_SEP]).tolist() + \
                                         [x.site_promo_dsc_amt.values[0]] + \
                                         [x.holiday_ind.unique()[0]] + \
                                         [x.gms.sum()]], \
                                        columns=x.keys())
                 else:
                     weights = (x.gms/x.gms.sum()).values
-                    out = pd.DataFrame([(x.iloc[0].values.astype('int')[:int_sep]).tolist() + \
+                    out = pd.DataFrame([(x.iloc[0].values.astype('int')[:self.args.INT_SEP]).tolist() + \
                                         [x.site_promo_dsc_amt.values @ weights] + \
                                         [x.holiday_ind.unique()[0]] + \
                                         [x.gms.sum()]], \
                                        columns=x.keys())
                 return out
 
-            if self.args.TAXONOMY_LEVEL == 'catg':
-                vec_sep = [self.args.TAX_ID, 'cal_yr_num', 'mnth_of_yr_num']
-                name_agg = 'catg_mnth_agg.csv'
-            elif self.args.TAXONOMY_LEVEL == 'subcatg':
-                vec_sep = [self.args.TAX_ID, 'cal_yr_num', 'promo_wk_num']
-                name_agg = 'subcatg_wk_agg.csv'
+            self.dp = self.df.groupby([self.args.TAX_ID, 'cal_yr_num', self.args.TIME_VAR]).apply(aggregate_func).reset_index(drop=True)
+            self.dp = self.dp.sort_values([self.args.TAX_ID, 'cal_yr_num', self.args.TIME_VAR])
+            self.dp.to_csv(self.args.PATH_SAVE + self.args.NAME_AGG, index=False)
 
-            self.dp = self.df.groupby(vec_sep).apply(aggregate_func).reset_index(drop=True)
-            self.dp = self.dp.sort_values(vec_sep)
-            self.dp.to_csv(self.args.PATH_SAVE + name_agg, index=False)
-
-        # pdb.set_trace()
 
         # merging start and end dates as features
-        self.dp = self.dp.merge(self.df_name_date, on='catg_id', how='left')
+        self.dp = self.dp.merge(self.df_name_date, on=self.args.TAX_ID, how='left')
 
         # removing NaN rows
-        null_rows_index = self.dp[(pd.isnull(self.dp).catg_name)].index
+        null_rows_index = self.dp[ (pd.isnull(self.dp).loc[:, self.args.TAX_NAME]) ].index
         self.dp = self.dp.drop(null_rows_index)
 
         # parsing month and year from start/end dates
-        start_col = np.array([ [int(date_str[:4]), int(date_str[5:7])] for date_str in self.dp.start_dt.values ])
-        end_col = np.array([ [int(date_str[:4]), int(date_str[5:7])] for date_str in self.dp.end_dt.values ])
+        def date_parser_func(date_str, args):
+            year = int(date_str[:4])
+            month = int(date_str[5:7])
+            if self.args.TAXONOMY_LEVEL == 'catg':
+                return [year, month]
+            elif self.args.TAXONOMY_LEVEL == 'subcatg':
+                day = int(date_str[-2:])
+                if day < 8 :
+                    week = 1
+                elif day < 16:
+                    week = 2
+                elif day < 23:
+                    week = 3
+                else:
+                    week = 4
+                return [year, (month-1)*4 + week]
+
+        start_col = np.array([ date_parser_func(date_str, self.args) for date_str in self.dp.start_dt.values])
+        end_col =   np.array([ date_parser_func(date_str, self.args) for date_str in self.dp.end_dt.values])
 
         self.dp['start_year'] = start_col[:,0]
-        self.dp['start_mnth'] = start_col[:,1]
+        if self.args.TIME_SCALE == 'month':
+            self.dp['start_mnth'] = start_col[:,1]
+        elif self.args.TIME_SCALE == 'week':
+            self.dp['start_wk'] = start_col[:,1]
+
         self.dp['end_year'] = end_col[:,0]
-        self.dp['end_mnth'] = end_col[:,1]
+        if self.args.TIME_SCALE == 'month':
+            self.dp['end_mnth'] = end_col[:,1]
+        elif self.args.TIME_SCALE == 'week':
+            self.dp['end_wk'] = end_col[:,1]
+
+
 
         del self.dp['start_dt']
         del self.dp['end_dt']
-        del self.dp['catg_name']
+        del self.dp[self.args.TAX_NAME]
 
         self.args.GMS_MIN = self.dp[self.dp.gms>0].gms.min()
         self.args.GMS_MAX = self.dp.gms.max()
 
+        pdb.set_trace()
+# @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+# @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+# @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+# @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+# @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+# @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+# @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
 
         # DATA CLEANING
-        # 1. REMOVING first month and last month
-        self.dp.loc[:, self.dp.keys()[:5]] = self.dp.loc[:, self.dp.keys()[:5]].round().astype('int32')
-        starttime = self.dp[self.dp.cal_yr_num == self.dp.cal_yr_num.min()].mnth_of_yr_num.min()
-        endtime = self.dp[self.dp.cal_yr_num == self.dp.cal_yr_num.max()].mnth_of_yr_num.max()
-        curr_year = self.dp.cal_yr_num.max()
-        self.dp = self.dp.drop(self.dp[(self.dp.cal_yr_num == self.dp.cal_yr_num.min()) & (self.dp.mnth_of_yr_num == starttime)].index).reset_index(drop=True)
-        self.dp = self.dp.drop(self.dp[(self.dp.cal_yr_num == self.dp.cal_yr_num.max()) & (self.dp.mnth_of_yr_num == endtime)].index).reset_index(drop=True)
+        # 1. REMOVING first month and last time step
+        self.dp.loc[:, self.dp.keys()[:self.args.INT_SEP]] = self.dp.loc[:, self.dp.keys()[:self.args.INT_SEP]].round().astype('int32')
+        starttime = self.dp[self.dp.cal_yr_num == self.dp.cal_yr_num.min()].loc[:, self.args.TIME_VAR].min()
+        endtime = self.dp[self.dp.cal_yr_num == self.dp.cal_yr_num.max()].loc[:,self.args.TIME_VAR].max()
+        curr_year = self.dp.cal_yr_num.max() + 1 if endtime==1 else self.dp.cal_yr_num.max()
+        self.dp = self.dp.drop(self.dp[(self.dp.cal_yr_num == self.dp.cal_yr_num.min()) & (self.dp.loc[:,self.args.TIME_VAR] == starttime)].index).reset_index(drop=True)
+        self.dp = self.dp.drop(self.dp[(self.dp.cal_yr_num == self.dp.cal_yr_num.max()) & (self.dp.loc[:,self.args.TIME_VAR] == endtime)].index).reset_index(drop=True)
         self.args.endtime = endtime
         self.args.curr_year = curr_year
 
@@ -476,9 +505,9 @@ class Predictor:
         args_gms = np.argsort(-self.dp.gms.values)[:how_many_to_remove]
         remove_idx_list = []
         for og in args_gms:
-            og_id = int(self.dp.iloc[og].catg_id)
+            og_id = int(self.dp.iloc[og].loc[:,self.args.TAX_ID])
             if og_id not in remove_ids_list:
-                og_rows = self.dp[self.dp.catg_id == og_id]
+                og_rows = self.dp[self.dp.loc[:,self.args.TAX_ID] == og_id]
                 remove_idx_list += og_rows.index.values.tolist()
                 remove_ids_list += [og_id]
         self.dp = self.dp.drop(remove_idx_list).reset_index(drop=True)
