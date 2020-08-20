@@ -465,7 +465,7 @@ class Predictor:
         elif self.args.TIME_SCALE == 'week':
             self.dp['end_wk'] = end_col[:,1]
 
-
+        pdb.set_trace()
 
         del self.dp['start_dt']
         del self.dp['end_dt']
