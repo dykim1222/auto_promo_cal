@@ -71,7 +71,7 @@ args.FORECAST_SIZE = 12 if args.TIME_SCALE == 'month' else 48 # 1 year
 
 
 args.PATH_DATA_RAW = 'https://raw.githubusercontent.com/dykim1222/gmsdata/master/catg_mnth.csv'
-df = pd.read_csv(args.PATH_DATA_RAW, sep='\t')
+df = pd.read_csv(args.PATH_DATA_RAW)
 
 predictor = Predictor(df, args)                     # initialization
 predictor.aggregate()                               # data aggregation

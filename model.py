@@ -409,6 +409,7 @@ class Predictor:
                 return out
             self.dp = self.df.groupby(['catg_id', 'cal_yr_num', 'mnth_of_yr_num']).apply(aggregate_func).reset_index(drop=True)
             self.dp = self.dp.sort_values(['catg_id', 'cal_yr_num', 'mnth_of_yr_num'])
+            self.dp.to_csv('catg_mnth_agg.csv', index=False)
 
         # merging start and end dates as features
         self.dp = self.dp.merge(self.df_name_date, on='catg_id', how='left')
