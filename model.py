@@ -806,12 +806,16 @@ class Predictor:
 
             # 4 CALIBRATION VARIATIONS: item, time, all, none
             if self.args.CALIBRATION_MODE == 'all': # calib all
+                print('Calibration all')
                 out = (self.calibration_all[1] + self.calibration_all[0]*out).reshape(self.args.VOCAB_SIZE, -1)
             elif self.args.CALIBRATION_MODE == 'time': # calibrate across time
+                print('Calibration time')
                 out = np.concatenate([((out[:,i]*self.calibration_dict_time[i][0]) + self.calibration_dict_time[i][1]).reshape(self.args.VOCAB_SIZE, 1)  for i in range(self.args.FORECAST_SIZE)], axis = 1)
             elif self.args.CALIBRATION_MODE == 'item': # calibrate across items
+                print('Calibration item')
                 out = np.concatenate([(o*self.calibration_dict_item[idx][0] + self.calibration_dict_item[idx][1]).reshape(1,-1) for idx, o in zip(pred_set_idx, out)])
             elif self.args.CALIBRATION_MODE == 'none':
+                print('Calibration none')
                 pass
 
             gms_tensor.append(np.expand_dims(out, 1))
