@@ -443,7 +443,7 @@ class Predictor:
         # parsing month and year from start/end dates
         def date_parser_func(date_str, args):
             # format change: e.g. 08/01/19 -> 2015-08-01-ww  where ww is a week number of the year
-            date_str = datetime.strptime(date_str,'%m/%d/%y')
+            date_str = datetime.strptime(date_str,'%Y-%m-%d')
             week = date_str.isocalendar()[1]
             date_str = date_str.strftime('%Y-%m')
             year, month = int(date_str[:4]), int(date_str[5:7])
