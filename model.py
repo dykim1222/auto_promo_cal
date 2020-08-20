@@ -329,7 +329,7 @@ class Predictor:
         self.calibration_dict_item = {}
         self.calibration_all = None
 
-        def smape(pred, targ):
+        def smape_func(pred, targ):
             if type(pred) == np.ndarray:
                 val =  abs(pred-targ)/(abs(pred) + abs(targ))
                 nan_mask = np.isnan(val)
@@ -338,7 +338,7 @@ class Predictor:
                 nan_mask = torch.isnan(val)
             return val[~nan_mask].mean()
 
-        def wmape(pred, targ, args, modify = True):
+        def wmape_func(pred, targ, args, modify = True):
             if modify:
                 if type(targ) == np.ndarray:
                     tt = np.copy(targ) + args.GMS_MIN/2
@@ -354,8 +354,8 @@ class Predictor:
             weight = targ/targ.sum()
             return (val*weight).sum()
 
-        self.smape_func = smape
-        self.wmape_func = wmape
+        self.smape_func = smape_func
+        self.wmape_func = wmape_func
 
     def aggregate(self):
 
@@ -368,25 +368,39 @@ class Predictor:
         ID_TO_NAME = {}
         NAME_TO_ID = {}
 
-        self.df_name_date = self.df[pd.Index(['catg_id']+self.df.keys()[-3:].tolist())]
-        self.df_name_date = self.df_name_date.groupby('catg_id').apply(lambda x: x.iloc[0]).reset_index(drop=True)
+        if self.args.TAXONOMY_LEVEL == 'catg':
+            self.args.TAX_ID = 'catg_id'
+            self.args.TAX_NAME = 'catg_name'
+        elif self.args.TAXONOMY_LEVEL == 'subcatg':
+            self.args.TAX_ID = 'subcatg_id'
+            self.args.TAX_NAME = 'subcatg_name'
 
-        del self.df['catg_name']
+        self.df_name_date = self.df[pd.Index([self.args.TAX_ID]+self.df.keys()[-3:].tolist())]
+        self.df_name_date = self.df_name_date.groupby(self.args.TAX_ID).apply(lambda x: x.iloc[0]).reset_index(drop=True)
+
+        del self.df[self.args.TAX_NAME]
         del self.df['start_dt']
         del self.df['end_dt']
 
         if self.args.DATA_AGGREGATED:
-            PATH_DATA_AGG = 'https://raw.githubusercontent.com/dykim1222/gmsdata/master/catg_mnth_agg.csv'
+            if self.args.TAXONOMY_LEVEL == 'catg':
+                PATH_DATA_AGG = 'https://raw.githubusercontent.com/dykim1222/gmsdata/master/catg_mnth_agg.csv'
+            elif self.args.TAXONOMY_LEVEL == 'subcatg':
+                PATH_DATA_AGG = '/Users/dkim/Desktop/cleaning/data/subcatg_wk_agg.csv'
             self.dp = pd.read_csv(PATH_DATA_AGG)
             if self.args.DEBUG:
-                self.dp = self.dp.iloc[:1000]
+                self.dp = self.dp.iloc[:3000]
 
         else: # aggregate the data
+            if self.args.TAXONOMY_LEVEL == 'catg':
+                int_sep = 5
+            elif self.args.TAXONOMY_LEVEL == 'subcatg':
+                int_sep = 6
             def aggregate_func(x):
                 # for a fixed item and time, if there are multiple transaction data for different discount rates,
                 #     aggregate these data by summing GMS values and taking weighted average of discount rates.
                 if x.shape[0] == 1:
-                    out = pd.DataFrame([(x.iloc[0].values.astype('int')[:5]).tolist() + \
+                    out = pd.DataFrame([(x.iloc[0].values.astype('int')[:int_sep]).tolist() + \
                                         [x.site_promo_dsc_amt.values[0]] + \
                                         [x.holiday_ind.unique()[0]] + \
                                         [x.gms.values[0]]], \
@@ -394,22 +408,32 @@ class Predictor:
                     return out
                 gms_sum = x.gms.sum()
                 if gms_sum == 0: # prevent NaNs
-                    out = pd.DataFrame([(x.iloc[0].values.astype('int')[:5]).tolist() + \
+                    out = pd.DataFrame([(x.iloc[0].values.astype('int')[:int_sep]).tolist() + \
                                         [x.site_promo_dsc_amt.values[0]] + \
                                         [x.holiday_ind.unique()[0]] + \
                                         [x.gms.sum()]], \
                                        columns=x.keys())
                 else:
                     weights = (x.gms/x.gms.sum()).values
-                    out = pd.DataFrame([(x.iloc[0].values.astype('int')[:5]).tolist() + \
+                    out = pd.DataFrame([(x.iloc[0].values.astype('int')[:int_sep]).tolist() + \
                                         [x.site_promo_dsc_amt.values @ weights] + \
                                         [x.holiday_ind.unique()[0]] + \
                                         [x.gms.sum()]], \
                                        columns=x.keys())
                 return out
-            self.dp = self.df.groupby(['catg_id', 'cal_yr_num', 'mnth_of_yr_num']).apply(aggregate_func).reset_index(drop=True)
-            self.dp = self.dp.sort_values(['catg_id', 'cal_yr_num', 'mnth_of_yr_num'])
-            self.dp.to_csv(self.args.PATH_SAVE + 'catg_mnth_agg.csv', index=False)
+
+            if self.args.TAXONOMY_LEVEL == 'catg':
+                vec_sep = [self.args.TAX_ID, 'cal_yr_num', 'mnth_of_yr_num']
+                name_agg = 'catg_mnth_agg.csv'
+            elif self.args.TAXONOMY_LEVEL == 'subcatg':
+                vec_sep = [self.args.TAX_ID, 'cal_yr_num', 'promo_wk_num']
+                name_agg = 'subcatg_wk_agg.csv'
+
+            self.dp = self.df.groupby(vec_sep).apply(aggregate_func).reset_index(drop=True)
+            self.dp = self.dp.sort_values(vec_sep)
+            self.dp.to_csv(self.args.PATH_SAVE + name_agg, index=False)
+
+        pdb.set_trace()
 
         # merging start and end dates as features
         self.dp = self.dp.merge(self.df_name_date, on='catg_id', how='left')
@@ -795,7 +819,7 @@ class Predictor:
         # After prediction: scaling back to original and calibrate
         gms_tensor = []
         model.eval()
-
+        pdb.set_trace()
         for dsc in input_dsc:
             h = model.init_hidden(inputX.shape[0])
             out = model(inputX.to(device), dsc.unsqueeze(0).expand(inputX.shape[0],-1).to(device), h)
@@ -820,6 +844,7 @@ class Predictor:
                 pass
 
             gms_tensor.append(np.expand_dims(out, 1))
+        pdb.set_trace()
 
         gms_tensor = np.concatenate(gms_tensor, axis=1)
         print('Negative entries after calibration {:<.2f} %'.format(100*(gms_tensor<0).mean()))

@@ -33,8 +33,8 @@ Pipeline:
 '''
 
 args = argparse.ArgumentParser()
-args.add_argument('--TIME_SCALE', nargs='?', type=str, default='month') # month or week
-args.add_argument('--TAXONOMY_LEVEL', nargs='?', type=str, default='catg') # catg or subcatg
+args.add_argument('--TIME_SCALE', nargs='?', type=str, default='week') # month or week
+args.add_argument('--TAXONOMY_LEVEL', nargs='?', type=str, default='subcatg') # catg or subcatg
 args.add_argument('--PATH_DATA_RAW', nargs='?', type=str, default='./') # raw data path
 args.add_argument('--PATH_SAVE', nargs='?', type=str, default='./') # save path
 args.add_argument('--THRESHOLD_GMS_OUTLIER', nargs='?', type=float, default=1e8) # outlier threshold
@@ -69,8 +69,10 @@ args.FORECAST_SIZE = 12 if args.TIME_SCALE == 'month' else 48 # 1 year
 
 
 
-
-args.PATH_DATA_RAW = 'https://raw.githubusercontent.com/dykim1222/gmsdata/master/catg_mnth.csv'
+if args.TAXONOMY_LEVEL == 'catg':
+    args.PATH_DATA_RAW = 'https://raw.githubusercontent.com/dykim1222/gmsdata/master/catg_mnth.csv' # catg month
+elif args.TAXONOMY_LEVEL == 'subcatg':
+    args.PATH_DATA_RAW = '/Users/dkim/Desktop/cleaning/data/subcatg_wk.csv' # subcatg week
 df = pd.read_csv(args.PATH_DATA_RAW)
 
 predictor = Predictor(df, args)                     # initialization
