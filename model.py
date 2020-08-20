@@ -442,10 +442,9 @@ class Predictor:
         def date_parser_func(date_str, args):
             # format change: e.g. 08/01/19 -> 2015-08-01-ww  where ww is a week number of the year
             date_str = datetime.strptime(date_str,'%m/%d/%y')
-
-            pdb.set_trace()
-            date_str = date_str.strftime('%Y-%m-%U')
-            year, month, week = int(date_str[:4]), int(date_str[5:7]), int(date_str[-2:])
+            week = date_str.isocalendar()[1]
+            date_str = date_str.strftime('%Y-%m')
+            year, month = int(date_str[:4]), int(date_str[5:7])
 
             if self.args.TAXONOMY_LEVEL == 'catg':
                 return [year, month]
