@@ -1,7 +1,7 @@
-sel top 10 * from USER_WORKING.daeyoung_promo_catg_mnth7
-where catg_id = 29682
+-- catg
+-- monthly
 
-CREATE TABLE USER_WORKING.daeyoung_promo_catg_mnth7 AS (
+CREATE TABLE USER_WORKING.daeyoung_promo_catg_mnth AS (
 WITH a AS (
 SELECT DISTINCT t.Catg_ID AS catg_id
 , s.subcatg_id
@@ -73,3 +73,5 @@ LEFT JOIN site_promo_dsc spd
 ON  u.src_site_promo_id = spd.site_promo_id
 GROUP BY 1,2,3,4,5,6--,7--,8,9,10,11
 ) WITH DATA PRIMARY INDEX (catg_id);
+
+update USER_WORKING.daeyoung_promo_catg_mnth set catg_name = oreplace(catg_name,',', ' ') where catg_name like '%,%'

@@ -1,4 +1,7 @@
-CREATE TABLE USER_WORKING.daeyoung_promo_subcatg_wk2 AS (
+-- subcatg
+-- weekly
+
+CREATE TABLE USER_WORKING.daeyoung_promo_subcatg_wk AS (
 WITH a AS (
 SELECT DISTINCT t.subcatg_id as subcatg_id
 FROM line_item_juice s
@@ -72,53 +75,4 @@ ON  u.src_site_promo_id = spd.site_promo_id
 GROUP BY 1,2,3,4,5,6,7--,8,9,10,11
 ) WITH DATA PRIMARY INDEX (subcatg_id);
 
-
-
-
---
---
--- --  when changing month, week, daily, change line 22-24 and last line mnth, wk, cal_dt.
--- CREATE TABLE USER_WORKING.daeyoung_promo_subcatg_daily AS (
--- WITH a AS (
---   SELECT DISTINCT subcatg_id
---   FROM  bi_sls_line_jce_spnd
---   WHERE sls_trans_dt BETWEEN DATE - INTERVAL '2' YEAR AND DATE - 1
---   AND  subcatg_id > 0
---   AND  sls_rpt_std_filter_ind = 'Y'
---   AND  sls_trans_conv_ind = 'Y' ),
---
---   b AS (
---   SELECT cal_dt
---       , wk_of_cal_num
---       , mnth_of_cal_num
---   FROM  ostk_cal
---   WHERE cal_dt BETWEEN DATE - INTERVAL '2' YEAR AND DATE - 1)
-
--- SELECT t.subcatg_id
---     , t.cal_dt
---     --, wk_of_cal_num
---     --, mnth_of_cal_num
---     , ZEROIFNULL(spd.site_promo_dsc_amt) AS site_promo_dsc_amt
---     , ZEROIFNULL(COUNT(DISTINCT short_sku_item_id)) AS sku_cnt
---     , ZEROIFNULL(SUM(s.item_qty)) AS unit_sold
---     , ZEROIFNULL(SUM(s.gms)) AS gms
---     , ZEROIFNULL(SUM(s.gmv_amt)) AS gmv
---     , ZEROIFNULL(SUM(s.product_juice)) AS juice
---     , ZEROIFNULL(SUM(s.tot_juice)) AS tot_juice
---     , ZEROIFNULL(SUM(s.product_nectar)) AS nectar
---     , ZEROIFNULL(SUM(s.tot_nectar)) AS tot_nectar
---     , ZEROIFNULL(SUM(s.trans_line_dsc_amt)) AS dsc_amt
--- FROM
---     (SELECT a.subcatg_id, b.cal_dt, b.wk_of_cal_num, b.mnth_of_cal_num
---     FROM a,b) t
--- LEFT JOIN bi_sls_line_jce_spnd s
--- ON   t.subcatg_id = s.subcatg_id -- need to ask about how to gather catg level <-- no catg_id in bi_sls_line_jce_spnd table.
--- AND  t.cal_dt = s.sls_trans_dt
--- AND s.sls_rpt_std_filter_ind = 'Y'
--- AND  s.sls_trans_conv_ind = 'Y'
--- LEFT JOIN site_promo_dsc spd
--- ON   s.site_promo_id = spd.site_promo_id
--- GROUP BY 1,2,3
--- ) WITH DATA UNIQUE PRIMARY INDEX (subcatg_id, cal_dt, site_promo_dsc_amt);
---) WITH DATA UNIQUE PRIMARY INDEX (subcatg_id, wk_of_cal_num, site_promo_dsc_amt);
---) WITH DATA UNIQUE PRIMARY INDEX (subcatg_id, mnth_of_cal_num, site_promo_dsc_amt);
+update USER_WORKING.daeyoung_promo_subcatg_wk set subcatg_name = oreplace(subcatg_name,',', ' ') where subcatg_name like '%,%'
