@@ -398,8 +398,10 @@ class Predictor:
 
         if self.args.DATA_AGGREGATED:
             self.dp = pd.read_csv(self.args.PATH_DATA_AGG)
+
             if self.args.DEBUG:
-                self.dp = self.dp.iloc[:3000]
+                pdb.set_trace()
+                self.dp = self.dp.iloc[:200000]
 
         else: # aggregate the data
             def aggregate_func(x):
@@ -651,13 +653,13 @@ class Predictor:
         # self.val_best = float('inf')
         self.val_best = 0
 
-        if self.args.DEBUG:
-            self.args.HIDDEN_DIM = 2
-            self.args.LATENT_DIM = 2
-            self.args.N_LAYERS = 2
-            self.args.EPOCHS = 3
-            self.args.NUM_KERNELS1 = 3
-            self.args.NUM_KERNELS2 = 3
+        # if self.args.DEBUG:
+        #     self.args.HIDDEN_DIM = 2
+        #     self.args.LATENT_DIM = 2
+        #     self.args.N_LAYERS = 2
+        #     self.args.EPOCHS = 3
+        #     self.args.NUM_KERNELS1 = 3
+        #     self.args.NUM_KERNELS2 = 3
 
         # Instantiating the models
         if self.args.model_type == "GRU":
@@ -826,10 +828,10 @@ class Predictor:
             future_dsc = torch.Tensor([dsc]*self.args.FORECAST_SIZE).float()
             input_dsc.append(future_dsc.unsqueeze(0))
 
-        if self.args.DEBUG:
-            inputX = torch.cat(inputX[:-1])
-        else:
-            inputX = torch.cat(inputX)
+        # if self.args.DEBUG:
+        #     inputX = torch.cat(inputX[:-1])
+        # else:
+        inputX = torch.cat(inputX)
         input_dsc = torch.cat(input_dsc)
 
 
