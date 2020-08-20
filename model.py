@@ -819,7 +819,7 @@ class Predictor:
         # After prediction: scaling back to original and calibrate
         gms_tensor = []
         model.eval()
-        pdb.set_trace()
+
         for dsc in input_dsc:
             h = model.init_hidden(inputX.shape[0])
             out = model(inputX.to(device), dsc.unsqueeze(0).expand(inputX.shape[0],-1).to(device), h)
@@ -844,7 +844,6 @@ class Predictor:
                 pass
 
             gms_tensor.append(np.expand_dims(out, 1))
-        pdb.set_trace()
 
         gms_tensor = np.concatenate(gms_tensor, axis=1)
         print('Negative entries after calibration {:<.2f} %'.format(100*(gms_tensor<0).mean()))
@@ -873,8 +872,7 @@ class Predictor:
 
             gms_tab = gms_tensor[:,:,i]
 
-            csv = pd.DataFrame(np.concatenate((catgid, catgname, gms_tab), axis = 1),
-                        columns = ['catg_id', 'catg_name']+['gms_pred_{}'.format(x) for x in [0,5,10,15,20,25]])
+            csv = pd.DataFrame(np.concatenate((catgid, catgname, gms_tab), axis = 1), columns = ['catg_id', 'catg_name']+['gms_pred_{}'.format(x) for x in [0,5,10,15,20,25]])
             csv.catg_id = csv.catg_id.astype('int')
             csv.loc[:, csv.keys()[-6:]] = csv.loc[:, csv.keys()[-6:]].values.astype('float')
 
@@ -896,7 +894,7 @@ class Predictor:
         self.args.TIME_ORDER = TIME_ORDER
 
         print('Inference done...')
-
+        pdb.set_trace()
         self.gms_csv = gms_csv
         return gms_csv
 
