@@ -400,8 +400,6 @@ class Predictor:
             self.dp = pd.read_csv(self.args.PATH_DATA_AGG)
 
             if self.args.DEBUG:
-                pdb.set_trace()
-
                 self.dp = self.dp.drop(self.dp[self.dp.cal_yr_num==2015].index)
                 self.dp = self.dp.drop(self.dp[self.dp.cal_yr_num==2016].index)
                 # self.dp = self.dp.drop(self.dp[self.dp.cal_yr_num==2017].index)
