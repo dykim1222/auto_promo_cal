@@ -903,12 +903,12 @@ class Predictor:
         print('Filtering predictions...')
 
         self.seasoner = Seasonalizer(self.dp_seas, self.args)
-        out = self.seasoner.filter(gms_csv)
-        self.gms_csv_filtered = out.copy()
+        gms_csv = self.seasoner.filter(gms_csv)
+        self.gms_csv_filtered = gms_csv.copy()
 
         print('Filtering predictions done...')
 
-        return out
+        return gms_csv
 
     def postprocess(self, gms_csv):
 
