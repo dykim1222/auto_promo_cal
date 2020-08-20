@@ -404,6 +404,7 @@ class Predictor:
 
                 self.dp = self.dp.drop(self.dp[self.dp.cal_yr_num==2015].index)
                 self.dp = self.dp.drop(self.dp[self.dp.cal_yr_num==2016].index)
+                # self.dp = self.dp.drop(self.dp[self.dp.cal_yr_num==2017].index)
 
         else: # aggregate the data
             def aggregate_func(x):
