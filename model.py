@@ -440,22 +440,16 @@ class Predictor:
 
         # parsing month and year from start/end dates
         def date_parser_func(date_str, args):
-            year = int(date_str[:4])
-            month = int(date_str[5:7])
+            # format change: e.g. 08/01/19 -> 2015-08-01-ww  where ww is a week number of the year
+            date_str = datetime.strptime(date_str,'%m/%d/%y')
+            date_str = date_str.strftime('%Y-%m-%U')
+            year, month, week = int(date_str[:4]), int(date_str[5:7]), int(date_str[-2:])
+
             if self.args.TAXONOMY_LEVEL == 'catg':
                 return [year, month]
             elif self.args.TAXONOMY_LEVEL == 'subcatg':
-                day = int(date_str[-2:])
-                if day < 8 :
-                    week = 1
-                elif day < 16:
-                    week = 2
-                elif day < 23:
-                    week = 3
-                else:
-                    week = 4
-                return [year, (month-1)*4 + week]
-        pdb.set_trace()
+                return [year, week]
+
         start_col = np.array([ date_parser_func(date_str, self.args) for date_str in self.dp.start_dt.values])
         end_col =   np.array([ date_parser_func(date_str, self.args) for date_str in self.dp.end_dt.values])
 
