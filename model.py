@@ -455,7 +455,7 @@ class Predictor:
                 else:
                     week = 4
                 return [year, (month-1)*4 + week]
-
+        pdb.set_trace()
         start_col = np.array([ date_parser_func(date_str, self.args) for date_str in self.dp.start_dt.values])
         end_col =   np.array([ date_parser_func(date_str, self.args) for date_str in self.dp.end_dt.values])
 
