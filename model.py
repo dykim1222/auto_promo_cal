@@ -905,7 +905,7 @@ class Predictor:
         self.seasoner = Seasonalizer(self.dp_seas, self.args)
         gms_csv = self.seasoner.filter(gms_csv)
         self.gms_csv_filtered = gms_csv.copy()
-
+        pdb.set_trace()
         print('Filtering predictions done...')
 
         return gms_csv
