@@ -433,7 +433,7 @@ class Predictor:
             self.dp = self.dp.sort_values(vec_sep)
             self.dp.to_csv(self.args.PATH_SAVE + name_agg, index=False)
 
-        pdb.set_trace()
+        # pdb.set_trace()
 
         # merging start and end dates as features
         self.dp = self.dp.merge(self.df_name_date, on='catg_id', how='left')
