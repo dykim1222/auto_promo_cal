@@ -466,8 +466,6 @@ class Predictor:
         elif self.args.TIME_SCALE == 'week':
             self.dp['end_wk'] = end_col[:,1]
 
-        pdb.set_trace()
-
         del self.dp['start_dt']
         del self.dp['end_dt']
         del self.dp[self.args.TAX_NAME]
@@ -479,7 +477,7 @@ class Predictor:
         # 1. REMOVING week number 53:
         if self.args.TIME_SCALE == 'week':
             self.dp = self.dp.drop(self.dp[self.dp.loc[:,self.args.TIME_VAR] == 53].index)
-        pdb.set_trace()
+            
         # 2. REMOVING first and last timestep
         self.dp.loc[:, self.dp.keys()[:self.args.INT_SEP]] = self.dp.loc[:, self.dp.keys()[:self.args.INT_SEP]].round().astype('int32')
         starttime = self.dp[self.dp.cal_yr_num == self.dp.cal_yr_num.min()].loc[:, self.args.TIME_VAR].min()
