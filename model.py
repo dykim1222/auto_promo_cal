@@ -904,8 +904,7 @@ class Predictor:
 
         self.seasoner = Seasonalizer(self.dp_seas, self.args)
         gms_csv = self.seasoner.filter(gms_csv)
-        self.gms_csv_filtered = gms_csv.copy()
-        pdb.set_trace()
+
         print('Filtering predictions done...')
 
         return gms_csv
@@ -930,8 +929,6 @@ class Predictor:
                             break
             gms_csv[counter] = gms_tab.drop(drop_idxs).reset_index(drop=True)
 
-        self.gms_csv_post = gms_csv.copy()
-        pdb.set_trace()
         print('Postprocessing done...')
 
         return gms_csv
