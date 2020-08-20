@@ -892,10 +892,10 @@ class Predictor:
             TIME_ORDER.append(time_num)
 
         self.args.TIME_ORDER = TIME_ORDER
+        self.gms_csv = gms_csv.copy()
 
         print('Inference done...')
-        pdb.set_trace()
-        self.gms_csv = gms_csv
+
         return gms_csv
 
     def apply_season_filter(self, gms_csv):
@@ -903,10 +903,12 @@ class Predictor:
         print('Filtering predictions...')
 
         self.seasoner = Seasonalizer(self.dp_seas, self.args)
+        out = self.seasoner.filter(gms_csv)
+        self.gms_csv_filtered = out.copy()
 
         print('Filtering predictions done...')
 
-        return self.seasoner.filter(gms_csv)
+        return out
 
     def postprocess(self, gms_csv):
 
@@ -927,6 +929,8 @@ class Predictor:
                             gms_tab.loc[i, gms_tab.keys()[-(6-(kounter+1)):]] = 0
                             break
             gms_csv[counter] = gms_tab.drop(drop_idxs).reset_index(drop=True)
+
+        self.gms_csv_post = gms_csv.copy()
 
         print('Postprocessing done...')
 
