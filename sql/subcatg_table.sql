@@ -67,7 +67,7 @@ ON t.subcatg_id = trans_dt.subcatg_id
 LEFT JOIN line_item_juice s
 ON  t.subcatg_id = s.subcatg_id
 AND t.cal_dt = s.sls_trans_dt
-LEFT JOIN  user_working.line_site_promo_id u
+LEFT JOIN  user_working.line_site_promo_id u --Komson generated this for me
 ON u.sls_trans_line_id = s.sls_trans_line_id
 AND u.sls_trans_id = s.sls_trans_id
 LEFT JOIN site_promo_dsc spd

@@ -183,12 +183,12 @@ class Seasonalizer:
     def calculate(self):
         # calculate_seasonality
         def calculate_seasonality(ds):
-            gms = ds.groupby('mnth_of_yr_num').mean().gms.values
+            gms = ds.groupby(self.args.TIME_VAR).mean().gms.values
             seas_score = MinMaxScaler().fit_transform(gms.reshape(-1,1)).reshape(-1)
-            out = pd.DataFrame(np.array([int(ds.catg_id.unique().item())] + seas_score.tolist(), dtype='object').reshape(1,-1), columns=['catg_id']+[i for i in range(1,self.args.FORECAST_SIZE+1)])
+            out = pd.DataFrame(np.array([int(ds.loc[:,self.args.TAX_ID].unique().item())] + seas_score.tolist(), dtype='object').reshape(1,-1), columns=[self.args.TAX_ID]+[i for i in range(1,self.args.FORECAST_SIZE+1)])
             return out
-        self.scores = self.dp.groupby('catg_id').apply(calculate_seasonality).reset_index(drop=True)
-        self.scores.catg_id = self.scores.catg_id.astype('int')
+        self.scores = self.dp.groupby(self.args.TAX_ID).apply(calculate_seasonality).reset_index(drop=True)
+        self.scores.loc[:,self.args.TAX_ID] = self.scores.loc[:,self.args.TAX_ID].astype('int')
         self.scores.loc[:, self.scores.keys()[1:]] = self.scores.loc[:, self.scores.keys()[1:]].values.astype('float')
 
     def filter(self, gms_csv):
@@ -202,16 +202,16 @@ class Seasonalizer:
         self.scores.loc[:, TIME_RANGE.tolist()] = (self.scores.loc[:, TIME_RANGE.tolist()].values < self.args.THRESHOLD_SEASONALITY)
 
         # adding items to DROP: items with seasonality score under the threshold
-        for idx in self.scores.catg_id.unique():
-            ds = self.scores[self.scores.catg_id == idx]
+        for idx in self.scores.loc[:,self.args.TAX_ID].unique():
+            ds = self.scores[self.scores.loc[:,self.args.TAX_ID] == idx]
             for timestep in TIME_RANGE[ds.loc[:, TIME_RANGE.tolist()].values.reshape(-1).astype('bool')]:
-                self.filter_dict[timestep].append(int(round(ds.catg_id.values[0])))
+                self.filter_dict[timestep].append(int(round(ds.loc[:,self.args.TAX_ID].values[0])))
 
         for counter, (timestep, gms_tab) in enumerate(zip(self.args.TIME_ORDER, gms_csv)):
             drop_ids = []
             for id in self.filter_dict[timestep]:
                 try:
-                    drop_ids.append(gms_tab[gms_tab.catg_id==id].index.item())
+                    drop_ids.append(gms_tab[gms_tab.loc[:,self.args.TAX_ID]==id].index.item())
                 except ValueError:
                     pass
             gms_csv[counter] = gms_tab.drop(drop_ids).reset_index(drop=True)
@@ -225,10 +225,10 @@ class LpOptimizer:
         self.args = args
 
     def solve(self, gms_tab, B, time, verbose=False):
-        D = np.array([0, 0.05, 0.1, 0.15, 0.2, 0.25]) # discount rates
-        N = gms_tab.catg_id.unique().shape[0]
+        D = np.array(self.args.dsc_rates)
+        N = gms_tab.loc[:,self.args.TAX_ID].unique().shape[0]
         G = gms_tab[gms_tab.keys()[-len(D):]].values
-        catgidxs = gms_tab.catg_id.values.astype('int')
+        item_idxs = gms_tab.loc[:,self.args.TAX_ID].values.astype('int')
         vecG = G.reshape(-1).astype('float')
         dG = np.repeat(D.reshape(1,-1), N, axis=0).reshape(-1) * vecG
 
@@ -264,33 +264,33 @@ class LpOptimizer:
             print("Objective: $ {:<.2f}".format(obj))
             print("Budget used: $ {:<.2f} out of $ {:<.2f}".format(spd, B))
 
-        return obj, spd, dsc_choice, catgidxs
+        return obj, spd, dsc_choice, item_idxs
 
-    def optmize(self, dp, gms_csv):
+    def optmize(self, gms_csv):
         TIME_BUDGET = np.array([self.args.BUDGET/self.args.FORECAST_SIZE]*self.args.FORECAST_SIZE) # array of budgets for each time
 
         obj_list = []
         spd_list = []
         dsc_list = []
-        catgids_list = []
+        item_ids_list = []
 
         for gms_tab, B, time in zip(gms_csv, TIME_BUDGET, self.args.TIME_ORDER):
             # for each timestep optimize and make a table of [items, time] promo calendar
 
             if gms_tab.shape[0] == 0:
-                obj, spd, dsc_choice, catgids = 0, 0, [], []
+                obj, spd, dsc_choice, item_ids = 0, 0, [], []
             else:
-                obj, spd, dsc_choice, catgids = self.solve(gms_tab, B, time)
+                obj, spd, dsc_choice, item_ids = self.solve(gms_tab, B, time)
             obj_list.append(obj)
             spd_list.append(spd)
             dsc_list.append(dsc_choice)
-            catgids_list.append(catgids)
+            item_ids_list.append(item_ids)
 
         # make the matrix first then make a dataframe with properly naming column keys
-        promo_cal = np.zeros((dp.catg_id.unique().shape[0], self.args.FORECAST_SIZE))
+        promo_cal = np.zeros((len(self.args.ID_TO_IDX.keys()), self.args.FORECAST_SIZE))
 
         for counter in range(self.args.FORECAST_SIZE):
-            for id, dsc in zip(catgids_list[counter], dsc_list[counter]):
+            for id, dsc in zip(item_ids_list[counter], dsc_list[counter]):
                 promo_cal[self.args.ID_TO_IDX[id], counter] = dsc
 
         output = np.empty((promo_cal.shape[0], self.args.FORECAST_SIZE+2), dtype='object')
@@ -302,8 +302,10 @@ class LpOptimizer:
         year_order = np.array([self.args.curr_year]*self.args.FORECAST_SIZE) # year order
         for i in range(new_year_ind, self.args.FORECAST_SIZE): # update the year order vector
             year_order[i] += 1
-        time_keys = ['year_'+str(y)+'_month_'+str(m) for y, m in zip(year_order, self.args.TIME_ORDER)] # pandas column keys for times
-        promo_cal = pd.DataFrame(output, columns = ['catg_id', 'catg_name'] + time_keys)
+        time_keys = ['year_'+str(y)+'_{}_'.format(self.args.TIME_SCALE) + str(m) for y, m in zip(year_order, self.args.TIME_ORDER)] # pandas column keys for times
+
+
+        promo_cal = pd.DataFrame(output, columns = [self.args.TAX_ID, self.args.TAX_NAME] + time_keys)
 
         return promo_cal
 
@@ -478,18 +480,12 @@ class Predictor:
         self.args.GMS_MIN = self.dp[self.dp.gms>0].gms.min()
         self.args.GMS_MAX = self.dp.gms.max()
 
-        pdb.set_trace()
-# @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-# @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-# @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-# @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-# @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-# @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-# @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-
-
         # DATA CLEANING
-        # 1. REMOVING first month and last time step
+        # 1. REMOVING week number 53:
+        if self.args.TIME_SCALE == 'week':
+            self.dp = self.dp.drop(self.dp[self.dp.loc[:,self.args.TIME_VAR] == 53].index)
+        pdb.set_trace()
+        # 2. REMOVING first and last timestep
         self.dp.loc[:, self.dp.keys()[:self.args.INT_SEP]] = self.dp.loc[:, self.dp.keys()[:self.args.INT_SEP]].round().astype('int32')
         starttime = self.dp[self.dp.cal_yr_num == self.dp.cal_yr_num.min()].loc[:, self.args.TIME_VAR].min()
         endtime = self.dp[self.dp.cal_yr_num == self.dp.cal_yr_num.max()].loc[:,self.args.TIME_VAR].max()
@@ -499,7 +495,7 @@ class Predictor:
         self.args.endtime = endtime
         self.args.curr_year = curr_year
 
-        # 2. REMOVING OUTLIER
+        # 3. REMOVING OUTLIER
         how_many_to_remove = self.dp[self.dp.gms>self.args.THRESHOLD_GMS_OUTLIER].shape[0]
         remove_ids_list = []
         args_gms = np.argsort(-self.dp.gms.values)[:how_many_to_remove]
@@ -514,27 +510,27 @@ class Predictor:
         self.dp_seas = self.dp.copy()
 
         # maps between name, id, idx's
-        for idx, id in enumerate(self.dp.catg_id.unique()):
+        for idx, id in enumerate(self.dp.loc[:,self.args.TAX_ID].unique()):
 
-            item = self.df_name_date[self.df_name_date.catg_id == id]
+            item = self.df_name_date[self.df_name_date.loc[:,self.args.TAX_ID] == id]
 
-            ID_TO_IDX[item.catg_id.item()] = idx
-            IDX_TO_ID[idx] = item.catg_id.item()
+            ID_TO_IDX[item.loc[:,self.args.TAX_ID].item()] = idx
+            IDX_TO_ID[idx] = item.loc[:,self.args.TAX_ID].item()
 
-            IDX_TO_NAME[idx] = item.catg_name.item()
-            NAME_TO_IDX[item.catg_name.item()] = idx
+            IDX_TO_NAME[idx] = item.loc[:,self.args.TAX_NAME].item()
+            NAME_TO_IDX[item.loc[:,self.args.TAX_NAME].item()] = idx
 
-            ID_TO_NAME[item.catg_id.item()] = item.catg_name.item()
-            NAME_TO_ID[item.catg_name.item()] = item.catg_id.item()
+            ID_TO_NAME[item.loc[:,self.args.TAX_ID].item()] = item.loc[:,self.args.TAX_NAME].item()
+            NAME_TO_ID[item.loc[:,self.args.TAX_NAME].item()] = item.loc[:,self.args.TAX_ID].item()
 
         # TOKENIZING
-        def catg_id_to_idx(x):
+        def map_id_to_idx(x):
             return ID_TO_IDX[x]
-        self.dp.catg_id = self.dp.catg_id.apply(catg_id_to_idx)
+        self.dp.loc[:,self.args.TAX_ID] = self.dp.loc[:,self.args.TAX_ID].apply(map_id_to_idx)
         # print('Tokeninzing TAXONOMY ID -> TAXONOMY IDX')
 
         # self.dp has catg_id as indexes
-        # self.dp_sesas has catg_id as ids
+        # self.dp_seas has catg_id as ids
 
         self.args.ID_TO_IDX = ID_TO_IDX
         self.args.IDX_TO_ID = IDX_TO_ID
@@ -546,16 +542,20 @@ class Predictor:
         self.args.VOCAB_SIZE = len(ID_TO_IDX.keys())
         self.args.EMBEDDING_DIM = int(round(self.args.VOCAB_SIZE**(0.3)))
 
-
         print('Aggregating data done...')
 
     def preprocess(self):
 
         print('Preprocessing data...')
 
-        cyclical_keys_periods = [4, 12, 3, 12, 12]
-        cyclical_keys = self.dp.keys()[[2, 3, 4, 9, 11]]
-        numeric_keys = self.dp.keys()[[1, 8, 10]]
+        if self.args.TAXONOMY_LEVEL == 'catg':
+            cyclical_keys = self.dp.keys()[[2, 3, 4, 9, 11]]
+            cyclical_keys_periods = [4, 12, 3, 12, 12]
+            numeric_keys = self.dp.keys()[[1, 8, 10]]
+        elif self.args.TAXONOMY_LEVEL == 'subcatg':
+            cyclical_keys = self.dp.keys()[[2, 3, 4, 5, 10, 12]]
+            cyclical_keys_periods = [4, 12, 3, 53, 12, 12]
+            numeric_keys = self.dp.keys()[[1, 9, 11]]
 
         self.scaler_label_dict = {}
 
@@ -565,8 +565,8 @@ class Predictor:
         self.dp.loc[np.arange(self.dp.shape[0]), numeric_keys] = scaler.transform(self.dp[numeric_keys].values)
 
         # INDIVIDUAL SCALING of GMS
-        for idx in range(len(self.dp.catg_id.unique())):
-            ds = self.dp[self.dp.catg_id == idx]
+        for idx in range(len(self.dp.loc[:,self.args.TAX_ID].unique())):
+            ds = self.dp[self.dp.loc[:,self.args.TAX_ID] == idx]
             scaler_label = MinMaxScaler()
             self.dp.loc[ds.index, 'gms'] = scaler_label.fit_transform(ds.gms.values.reshape(-1,1)).reshape(-1)
             self.scaler_label_dict[idx] = scaler_label
@@ -584,14 +584,6 @@ class Predictor:
             self.dp[key+'_cos'] = dpk[:,0]
             self.dp[key+'_sin'] = dpk[:,1]
             del self.dp[key]
-        # # ONEHOTENCODER
-        # for key in cyclical_keys:
-        #     enc = OneHotEncoder()
-        #     enc.fit(dp[key].values.reshape(-1,1))
-        #     res = enc.transform(dp[key].values.reshape(-1, 1)).toarray()
-        #     for i, kkey in enumerate(enc.get_feature_names([key])):
-        #         dp[kkey] = res[:,i]
-        #     del dp[key]
 
         # move gms column to the end
         temp = self.dp.gms.values
@@ -622,7 +614,7 @@ class Predictor:
             self.testY = []
 
             for idx in (self.args.IDX_TO_ID.keys()):
-                dd = self.dp[self.dp.catg_id == idx].reset_index(drop=True)
+                dd = self.dp[self.dp.loc[:,self.args.TAX_ID] == idx].reset_index(drop=True)
                 length = dd.shape[0]
                 test_set_size = int(round((length-self.args.FORECAST_SIZE+1 - self.args.CONTEXT_SIZE)*self.args.TEST_SET_SIZE))
 
@@ -645,8 +637,8 @@ class Predictor:
                         self.testY.append(future_gms.unsqueeze(0))
 
             # SAVE THE DATA
-            torch.save({'x': self.trainX, 'y': self.trainY, 'd': self.train_dsc}, self.args.PATH_SAVE+'train_data_save.pt')
-            torch.save({'x':self.testX, 'y': self.testY, 'd':self.test_dsc}, self.args.PATH_SAVE+'test_data_save.pt')
+            torch.save({'x': self.trainX, 'y': self.trainY, 'd': self.train_dsc}, self.args.PATH_SAVE+'train_data_save_{}_{}.pt'.format(self.args.TAXONOMY_LEVEL, self.args.TIME_SCALE))
+            torch.save({'x':self.testX, 'y': self.testY, 'd':self.test_dsc}, self.args.PATH_SAVE+'test_data_save_{}_{}.pt'.format(self.args.TAXONOMY_LEVEL, self.args.TIME_SCALE))
 
         self.train_data = TensorDataset(torch.cat(self.trainX, dim = 0), torch.cat(self.trainY, dim=0), torch.cat(self.train_dsc, dim=0))
         self.train_loader = DataLoader(self.train_data, shuffle=True, batch_size=self.args.BATCH_SIZE, drop_last = True)
@@ -718,13 +710,13 @@ class Predictor:
             if self.test_performance[-1] > self.val_best:
                 self.val_best = self.test_performance[-1]
                 save_data = {'model': model.state_dict(),
-                    'optimizer': optimizer.state_dict(),
-                    'epoch': epoch,
-                    'scale': self.scaler_label_dict,
-                    'calib_time': self.calibration_dict_time,
-                    'calib_item': self.calibration_dict_item,
-                    'calib_all': self.calibration_all
-                    }
+                            'optimizer': optimizer.state_dict(),
+                            'epoch': epoch,
+                            'scale': self.scaler_label_dict,
+                            'calib_time': self.calibration_dict_time,
+                            'calib_item': self.calibration_dict_item,
+                            'calib_all': self.calibration_all
+                            }
                 torch.save(save_data, self.args.PATH_MODEL_SAVE)
                 self.saved_model = save_data
                 print('Model Saved.')
@@ -826,12 +818,13 @@ class Predictor:
         # INFERENCE
         inputX = []
         for idx in (self.args.IDX_TO_ID.keys()):
-            dd = self.dp[self.dp.catg_id == idx].reset_index(drop=True)
+            dd = self.dp[self.dp.loc[:,self.args.TAX_ID] == idx].reset_index(drop=True)
             sam = torch.from_numpy(dd.iloc[-self.args.CONTEXT_SIZE:, :].values).float()
             inputX.append(sam.unsqueeze(0))
 
         # For each discount rate
         dsc_rates = [0., 0.05, 0.1, 0.15, 0.2, 0.25]
+        self.args.dsc_rates = dsc_rates
         input_dsc = []
 
         for dsc in dsc_rates:
@@ -844,8 +837,9 @@ class Predictor:
             inputX = torch.cat(inputX)
         input_dsc = torch.cat(input_dsc)
 
-        # Initialize gms_tensor and predict
-        # After prediction: scaling back to original and calibrate
+
+        # Initialize gms_tensor and predict.
+        # After prediction, scaling back to original scale and calibrate
         gms_tensor = []
         model.eval()
 
@@ -860,7 +854,7 @@ class Predictor:
 
             # 4 CALIBRATION VARIATIONS: item, time, all, none
             if self.args.CALIBRATION_MODE == 'all': # calib all
-                print('Calibration all')
+                print('Calibration altogether')
                 out = (self.calibration_all[1] + self.calibration_all[0]*out).reshape(self.args.VOCAB_SIZE, -1)
             elif self.args.CALIBRATION_MODE == 'time': # calibrate across time
                 print('Calibration time')
@@ -876,24 +870,17 @@ class Predictor:
 
         gms_tensor = np.concatenate(gms_tensor, axis=1)
         print('Negative entries after calibration {:<.2f} %'.format(100*(gms_tensor<0).mean()))
-
-        # plt.hist(gms_tensor[gms_tensor<0].reshape(-1), bins=20)
-        # plt.title('GMS Distribution of Negative entries')
-        # plt.xlabel('GMS')
-        # plt.show()
-
-        gms_tensor = np.maximum(gms_tensor, 0) # gms_tensor.shape # [num_items, num_dsc_rates, num_timesteps]
+        gms_tensor = np.maximum(gms_tensor, 0) # gms_tensor.shape [num_items, num_dsc_rates, num_timesteps]
 
         # TRANSFORMING INTO PANDAS DATAFRAMES
-        catgid = np.array(list(map(lambda x: self.args.IDX_TO_ID[x], pred_set_idx))).astype(int)
-        catgid = np.expand_dims(catgid, 1)
+        item_id = np.array(list(map(lambda x: self.args.IDX_TO_ID[x], pred_set_idx))).astype(int)
+        item_id = np.expand_dims(item_id, 1)
 
-        catgname = np.array([self.args.ID_TO_NAME[cid] for cid in catgid.reshape(-1).tolist()])
-        catgname = np.expand_dims(catgname, 1)
+        item_name = np.array([self.args.ID_TO_NAME[cid] for cid in item_id.reshape(-1).tolist()])
+        item_name = np.expand_dims(item_name, 1)
 
         TIME_ORDER = []
         gms_csv = []
-        END_TIME_SCALE = 12 if self.args.TIME_SCALE == 'month' else 48
         curryear = self.args.curr_year
 
         # generating gms tensor
@@ -901,22 +888,21 @@ class Predictor:
 
             gms_tab = gms_tensor[:,:,i]
 
-            csv = pd.DataFrame(np.concatenate((catgid, catgname, gms_tab), axis = 1), columns = ['catg_id', 'catg_name']+['gms_pred_{}'.format(x) for x in [0,5,10,15,20,25]])
-            csv.catg_id = csv.catg_id.astype('int')
-            csv.loc[:, csv.keys()[-6:]] = csv.loc[:, csv.keys()[-6:]].values.astype('float')
+            csv = pd.DataFrame(np.concatenate((item_id, item_name, gms_tab), axis = 1), columns = [self.args.TAX_ID, self.args.TAX_NAME]+['gms_pred_{}'.format(x) for x in self.args.dsc_rates])
+            csv.loc[:, self.args.TAX_ID] = csv.loc[:,self.args.TAX_ID].astype('int')
+            csv.loc[:, csv.keys()[-len(self.args.dsc_rates):]] = csv.loc[:, csv.keys()[-len(self.args.dsc_rates):]].values.astype('float')
 
-            time_num = (self.args.endtime+i)%END_TIME_SCALE
+            time_num = (self.args.endtime+i)%self.args.FORECAST_SIZE
             if time_num == 0:
-                time_num = END_TIME_SCALE
+                time_num = self.args.FORECAST_SIZE
 
-            # csv.to_csv('year_{}_time_{}.csv'.format(curryear, time_num), index = False)
             gms_csv.append(csv)
 
-            inc = ((gms_tab[:,-1] - gms_tab[:,0]) > 0).mean()
-            zer = ((gms_tab[:,-1] - gms_tab[:,0]) == 0).mean()
-            print('Year {} Month {} Increasing: {:<.2f}, Zero: {:<.2f}, Decreasing: {:<.2f}'.format(curryear, time_num, inc, zer, 1-inc-zer))
+            # inc = ((gms_tab[:,-1] - gms_tab[:,0]) > 0).mean()
+            # zer = ((gms_tab[:,-1] - gms_tab[:,0]) == 0).mean()
+            # print('Year {} Month {} Increasing: {:<.2f}, Zero: {:<.2f}, Decreasing: {:<.2f}'.format(curryear, time_num, inc, zer, 1-inc-zer))
 
-            if time_num == END_TIME_SCALE:
+            if time_num == self.args.FORECAST_SIZE:
                 curryear += 1
             TIME_ORDER.append(time_num)
 
@@ -945,7 +931,7 @@ class Predictor:
         # drop constant items  OR zero out once starting to decrease.
 
         for counter, gms_tab in enumerate(gms_csv):
-            slopes = gms_tab[gms_tab.keys()[-6:]].values[:, 1:].astype('float') - gms_tab[gms_tab.keys()[-6:]].values[:, :-1].astype('float')
+            slopes = gms_tab[gms_tab.keys()[-len(self.args.dsc_rates):]].values[:, 1:].astype('float') - gms_tab[gms_tab.keys()[-len(self.args.dsc_rates):]].values[:, :-1].astype('float')
             slopes = (slopes > 0)
             drop_idxs = []
             for i in range(gms_tab.shape[0]):
@@ -954,7 +940,7 @@ class Predictor:
                 else:
                     for kounter, tval in enumerate(slopes[i]): # zero-ing out non-increasing parts
                         if not tval:
-                            gms_tab.loc[i, gms_tab.keys()[-(6-(kounter+1)):]] = 0
+                            gms_tab.loc[i, gms_tab.keys()[-(len(self.args.dsc_rates)-(kounter+1)):]] = 0
                             break
             gms_csv[counter] = gms_tab.drop(drop_idxs).reset_index(drop=True)
 
@@ -967,8 +953,8 @@ class Predictor:
         print('Optimizing...')
 
         optimizer = LpOptimizer(self.args)
-        promo_cal = optimizer.optmize(self.dp, gms_csv)
-        promo_cal.to_csv(self.args.PATH_SAVE+'promo_cal.csv', index=False)
+        promo_cal = optimizer.optmize(gms_csv)
+        promo_cal.to_csv(self.args.PATH_SAVE+'promo_cal_{}_{}.csv'.format(self.args.TAXONOMY_LEVEL, self.args.TIME_SCALE), index=False)
 
         print('Optimizing done...')
 
