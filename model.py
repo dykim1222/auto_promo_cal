@@ -401,7 +401,9 @@ class Predictor:
 
             if self.args.DEBUG:
                 pdb.set_trace()
-                self.dp = self.dp.iloc[:200000]
+
+                self.dp = self.dp.drop(self.dp[self.dp.cal_yr_num==2015].index)
+                self.dp = self.dp.drop(self.dp[self.dp.cal_yr_num==2016].index)
 
         else: # aggregate the data
             def aggregate_func(x):
