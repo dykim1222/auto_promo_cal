@@ -60,23 +60,19 @@ args.add_argument('--BI_DIRECTIONAL', nargs='?', type=bool, default=False)
 args.add_argument('--NUM_KERNELS1', nargs='?', type=int, default=20) # how many kernels per channel for conv1
 args.add_argument('--NUM_KERNELS2', nargs='?', type=int, default=5) # how many kernels per channel for conv2
 args = args.parse_args()
-
-args.PATH_MODEL_SAVE = args.PATH_SAVE + 'model_{}_{}.pt'.format(args.TAXONOMY_LEVEL, args.TIME_SCALE)
-args.CONTEXT_SIZE = 24 if args.TIME_SCALE == 'month' else 104 # 2 years
-args.FORECAST_SIZE = 12 if args.TIME_SCALE == 'month' else 52 # 1 year
-
-
+# args = args.parse_args(args=[]) # for jupyter notebook
 
 
 
 if args.TAXONOMY_LEVEL == 'catg':
     args.PATH_DATA_RAW = 'https://raw.githubusercontent.com/dykim1222/gmsdata/master/catg_mnth.csv' # catg month
+    args.PATH_DATA_AGG = 'https://raw.githubusercontent.com/dykim1222/gmsdata/master/catg_mnth_agg.csv'
 elif args.TAXONOMY_LEVEL == 'subcatg':
     args.PATH_DATA_RAW = '/Users/dkim/Desktop/cleaning/data/subcatg_wk.csv' # subcatg week
-df = pd.read_csv(args.PATH_DATA_RAW)
+    args.PATH_DATA_AGG = '/Users/dkim/Desktop/cleaning/data/subcatg_wk_agg.csv'
 
 
-predictor = Predictor(df, args)                     # initialization
+predictor = Predictor(args)                     # initialization
 predictor.aggregate()                               # data aggregation
 predictor.preprocess()                              # data preprocess
 predictor.generate_dataset()                        # data generation

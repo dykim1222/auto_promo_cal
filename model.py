@@ -311,8 +311,14 @@ class LpOptimizer:
 
 # GMS PREDICTOR
 class Predictor:
-    def __init__(self, df, args):
-        self.df = df.copy()
+    def __init__(self, args):
+
+        args.PATH_MODEL_SAVE = args.PATH_SAVE + 'model_{}_{}.pt'.format(args.TAXONOMY_LEVEL, args.TIME_SCALE)
+        args.CONTEXT_SIZE = 24 if args.TIME_SCALE == 'month' else 104 # 2 years
+        args.FORECAST_SIZE = 12 if args.TIME_SCALE == 'month' else 52 # 1 year
+
+
+        self.df = pd.read_csv(args.PATH_DATA_RAW)
         self.args = args
 
         self.criterion = nn.MSELoss()
@@ -391,11 +397,7 @@ class Predictor:
         del self.df['end_dt']
 
         if self.args.DATA_AGGREGATED:
-            if self.args.TAXONOMY_LEVEL == 'catg':
-                PATH_DATA_AGG = 'https://raw.githubusercontent.com/dykim1222/gmsdata/master/catg_mnth_agg.csv'
-            elif self.args.TAXONOMY_LEVEL == 'subcatg':
-                PATH_DATA_AGG = '/Users/dkim/Desktop/cleaning/data/subcatg_wk_agg.csv'
-            self.dp = pd.read_csv(PATH_DATA_AGG)
+            self.dp = pd.read_csv(self.args.PATH_DATA_AGG)
             if self.args.DEBUG:
                 self.dp = self.dp.iloc[:3000]
 
