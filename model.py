@@ -494,8 +494,7 @@ class Predictor:
         args_gms = np.argsort(-self.dp.gms.values)[:how_many_to_remove]
         remove_idx_list = []
         for og in args_gms:
-            pdb.set_trace()
-            og_id = int(self.dp.iloc[og].loc[:,self.args.TAX_ID])
+            og_id = int(self.dp.iloc[og][self.args.TAX_ID])
             if og_id not in remove_ids_list:
                 og_rows = self.dp[self.dp.loc[:,self.args.TAX_ID] == og_id]
                 remove_idx_list += og_rows.index.values.tolist()
