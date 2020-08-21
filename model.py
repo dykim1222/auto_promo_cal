@@ -439,6 +439,7 @@ class Predictor:
             self.dp.to_csv(self.args.PATH_SAVE + self.args.NAME_AGG, index=False)
 
 
+
         # merging start and end dates as features
         self.dp = self.dp.merge(self.df_name_date, on=self.args.TAX_ID, how='left')
 
