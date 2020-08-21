@@ -376,18 +376,21 @@ class Predictor:
         ID_TO_NAME = {}
         NAME_TO_ID = {}
 
+        if self.args.TIME_SCALE == 'month':
+            self.args.TIME_VAR = 'mnth_of_yr_num'
+            self.args.INT_SEP = 5
+        elif self.args.TIME_SCALE == 'week':
+            self.args.TIME_VAR = 'promo_wk_num'
+            self.args.INT_SEP = 6
+
         if self.args.TAXONOMY_LEVEL == 'catg':
             self.args.TAX_ID = 'catg_id'
             self.args.TAX_NAME = 'catg_name'
-            self.args.TIME_VAR = 'mnth_of_yr_num'
-            self.args.INT_SEP = 5
-            self.args.NAME_AGG = 'catg_mnth_agg.csv'
+            self.args.NAME_AGG = 'catg_mnth_agg.csv'  if self.args.TIME_SCALE =='month' else 'catg_wk_agg.csv'
         elif self.args.TAXONOMY_LEVEL == 'subcatg':
             self.args.TAX_ID = 'subcatg_id'
             self.args.TAX_NAME = 'subcatg_name'
-            self.args.TIME_VAR = 'promo_wk_num'
-            self.args.INT_SEP = 6
-            self.args.NAME_AGG = 'subcatg_wk_agg.csv'
+            self.args.NAME_AGG = 'subcatg_mnth_agg.csv' if self.args.TIME_SCALE =='month' else 'subcatg_wk_agg.csv'
 
         self.df_name_date = self.df[pd.Index([self.args.TAX_ID]+self.df.keys()[-3:].tolist())]
         self.df_name_date = self.df_name_date.groupby(self.args.TAX_ID).apply(lambda x: x.iloc[0]).reset_index(drop=True)
@@ -451,9 +454,9 @@ class Predictor:
             date_str = date_str.strftime('%Y-%m')
             year, month = int(date_str[:4]), int(date_str[5:7])
 
-            if self.args.TAXONOMY_LEVEL == 'catg':
+            if self.args.TIME_SCALE == 'month':
                 return [year, month]
-            elif self.args.TAXONOMY_LEVEL == 'subcatg':
+            elif self.args.TIME_SCALE == 'week':
                 return [year, week]
 
         start_col = np.array([ date_parser_func(date_str, self.args) for date_str in self.dp.start_dt.values])
@@ -546,11 +549,11 @@ class Predictor:
 
         print('Preprocessing data...')
 
-        if self.args.TAXONOMY_LEVEL == 'catg':
+        if self.args.TIME_SCALE == 'month':
             cyclical_keys = self.dp.keys()[[2, 3, 4, 9, 11]]
             cyclical_keys_periods = [4, 12, 3, 12, 12]
             numeric_keys = self.dp.keys()[[1, 8, 10]]
-        elif self.args.TAXONOMY_LEVEL == 'subcatg':
+        elif self.args.TIME_SCALE == 'week':
             cyclical_keys = self.dp.keys()[[2, 3, 4, 5, 10, 12]]
             cyclical_keys_periods = [4, 12, 3, 53, 12, 12]
             numeric_keys = self.dp.keys()[[1, 9, 11]]
@@ -597,8 +600,8 @@ class Predictor:
 
         if self.args.DATA_CREATED:
             # LOAD THE DATA
-            train_data_load = torch.load(self.args.PATH_SAVE + 'train_data_save.pt')
-            test_data_load = torch.load(self.args.PATH_SAVE + 'test_data_save.pt')
+            train_data_load = torch.load(self.args.PATH_SAVE + 'train_data_save_{}_{}.pt'.format(self.args.TAXONOMY_LEVEL, self.args.TIME_SCALE))
+            test_data_load = torch.load(self.args.PATH_SAVE + 'test_data_save_{}_{}.pt'.format(self.args.TAXONOMY_LEVEL, self.args.TIME_SCALE))
             self.trainX, self.trainY, self.train_dsc = train_data_load['x'], train_data_load['y'], train_data_load['d']
             self.testX, self.testY, self.test_dsc = test_data_load['x'], test_data_load['y'], test_data_load['d']
 

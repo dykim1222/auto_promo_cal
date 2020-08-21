@@ -43,7 +43,7 @@ args.add_argument('--BUDGET', nargs='?', type=float, default=1e6)
 args.add_argument('--DATA_AGGREGATED', nargs='?', type=bool, default=True) # whether data is algready aggregated (saves time when testing)
 args.add_argument('--DATA_CREATED', nargs='?', type=bool, default=False)
 args.add_argument('--CALIBRATION_MODE', nargs='?', type=str, default='none') # calibration methods: none, item, time, all
-args.add_argument('--DEBUG', nargs='?', type=bool, default=False)
+args.add_argument('--DEBUG', nargs='?', type=bool, default=True)
 # LSTM params
 args.add_argument('--lr', nargs='?', type=float, default=0.00001) # learing rate
 args.add_argument('--model_type', nargs='?', type=str, default='LSTM') # LSTM, GRU, LSTMCONV
@@ -65,11 +65,17 @@ args = args.parse_args()
 
 
 if args.TAXONOMY_LEVEL == 'catg':
-    args.PATH_DATA_RAW = 'https://raw.githubusercontent.com/dykim1222/gmsdata/master/catg_mnth.csv' # catg month
-    args.PATH_DATA_AGG = 'https://raw.githubusercontent.com/dykim1222/gmsdata/master/catg_mnth_agg.csv'
+    if args.TIME_SCALE == 'month':
+        args.PATH_DATA_RAW = 'https://raw.githubusercontent.com/dykim1222/gmsdata/master/catg_mnth.csv' # catg month
+        args.PATH_DATA_AGG = 'https://raw.githubusercontent.com/dykim1222/gmsdata/master/catg_mnth_agg.csv'
+    elif args.TIME_SCALE == 'week':
+        pass
 elif args.TAXONOMY_LEVEL == 'subcatg':
-    args.PATH_DATA_RAW = '/Users/dkim/Desktop/cleaning/data/subcatg_wk.csv' # subcatg week
-    args.PATH_DATA_AGG = '/Users/dkim/Desktop/cleaning/data/subcatg_wk_agg.csv'
+    if args.TIME_SCALE == 'month':
+        pass
+    elif args.TIME_SCALE == 'week':
+        args.PATH_DATA_RAW = '/Users/dkim/Desktop/cleaning/data/subcatg_wk.csv' # subcatg week
+        args.PATH_DATA_AGG = '/Users/dkim/Desktop/cleaning/data/subcatg_wk_agg.csv'
 
 
 predictor = Predictor(args)                     # initialization
