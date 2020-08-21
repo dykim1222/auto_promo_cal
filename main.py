@@ -43,13 +43,13 @@ args.add_argument('--BUDGET', nargs='?', type=float, default=1e6)
 args.add_argument('--DATA_AGGREGATED', nargs='?', type=bool, default=True) # whether data is algready aggregated (saves time when testing)
 args.add_argument('--DATA_CREATED', nargs='?', type=bool, default=False)
 args.add_argument('--CALIBRATION_MODE', nargs='?', type=str, default='none') # calibration methods: none, item, time, all
-args.add_argument('--DEBUG', nargs='?', type=bool, default=True)
+args.add_argument('--DEBUG', nargs='?', type=bool, default=False)
 # LSTM params
 args.add_argument('--lr', nargs='?', type=float, default=0.00001) # learing rate
 args.add_argument('--model_type', nargs='?', type=str, default='LSTM') # LSTM, GRU, LSTMCONV
 args.add_argument('--TEST_SET_SIZE', nargs='?', type=float, default=0.2)
 args.add_argument('--CLIP_GRAD', nargs='?', type=float, default=100.)
-args.add_argument('--BATCH_SIZE', nargs='?', type=int, default=128)
+args.add_argument('--BATCH_SIZE', nargs='?', type=int, default=32)
 
 args.add_argument('--HIDDEN_DIM', nargs='?', type=int, default=32)
 args.add_argument('--LATENT_DIM', nargs='?', type=int, default=1024)
