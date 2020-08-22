@@ -1,5 +1,5 @@
 -- catg
--- monthly
+-- weekly
 
 CREATE TABLE USER_WORKING.daeyoung_promo_catg_wk AS (
 WITH a AS (
@@ -18,16 +18,16 @@ SELECT cal_dt
 , mnth_of_yr_num
 , promo_wk_num
 , CASE WHEN holiday_ind = 'Y' THEN 1 ELSE 0 END AS holiday_ind
-, day_of_cal_num
-, wk_of_cal_num
-, mnth_of_cal_num
-, qtr_of_cal_num
-, day_of_wk_num
-, day_of_mnth_num
-, day_of_qtr_num
-, day_of_yr_num
-, wk_of_mnth_num
-, wk_of_yr_num
+--, day_of_cal_num
+--, wk_of_cal_num
+--, mnth_of_cal_num
+--, qtr_of_cal_num
+--, day_of_wk_num
+--, day_of_mnth_num
+--, day_of_qtr_num
+--, day_of_yr_num
+--, wk_of_mnth_num
+--, wk_of_yr_num
 , mnth_of_qtr_num
 FROM ostk_cal
 WHERE cal_dt BETWEEN DATE - INTERVAL '5' YEAR AND DATE - 1)
@@ -44,12 +44,13 @@ SELECT t.catg_id
 , MIN(trans_dt.start_dt) as start_dt
 , MIN(trans_dt.end_dt) as end_dt
 FROM
-(SELECT DISTINCT a.catg_id, a.subcatg_id, b.cal_dt, b.wk_of_cal_num, b.mnth_of_cal_num
+(SELECT DISTINCT a.catg_id
+, a.subcatg_id
+, b.cal_dt
 , cal_yr_num
 , qtr_of_yr_num
 , mnth_of_yr_num
 , mnth_of_qtr_num
-, qtr_of_cal_num
 , promo_wk_num
 , holiday_ind
 FROM a,b) t
